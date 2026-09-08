@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rekonsiliasi POS & Magento</title>
+  <!-- Load local SheetJS library for 100% offline capability, fallback to CDN if opened online without local script -->
+  <script src="./xlsx.full.min.js"></script>
+  <script>
+    if (typeof XLSX === 'undefined') {
+      document.write('<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"><\/script>');
+    }
+  </script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --warning: #d97706;
+      --warning-bg: #fef3c7;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --purple: #7c3aed;
+      --purple-bg: #f3e8ff;
+      --gray-50: #f8fafc;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-300: #cbd5e1;
+      --gray-600: #475569;
+      --gray-700: #334155;
+      --gray-800: #1e293b;
+      --gray-900: #0f172a;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #f8fafc;
+      color: var(--gray-800);
+      line-height: 1.5;
+      padding: 24px 16px 40px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Top Navigation Tabs (Module Switcher) */
+    .nav-tabs-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    .nav-tabs {
+      display: inline-flex;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 12px;
+      gap: 4px;
+    }
+    .nav-btn {
+      border: none;
+      background: transparent;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gray-600);
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .nav-btn:hover:not(.active) {
+      color: var(--gray-900);
+      background: rgba(255, 255, 255, 0.5);
+    }
+    .nav-btn.active {
+      background: white;
+      color: var(--primary);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .header p {
+      color: var(--gray-600);
+      font-size: 14px;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    /* Upload Grid */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .upload-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .upload-card {
+      background: #ffffff;
+      border: 2px dashed var(--gray-300);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    .upload-card:hover, .upload-card.drag-over {
+      border-color: var(--primary);
+      background-color: #f0f7ff;
+    }
+    .upload-card.loaded {
+      border-style: solid;
+      border-color: #86efac;
+      background-color: #f0fdf4;
+    }
+
+    .upload-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 12px;
+      color: var(--gray-600);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gray-100);
+      border-radius: 50%;
+    }
+    .upload-card.loaded .upload-icon {
+      background: #dcfce7;
+      color: var(--success);
+    }
+
+    .upload-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--gray-900);
+      margin-bottom: 4px;
+    }
+    .upload-desc {
+      font-size: 12px;
+      color: var(--gray-600);
+      margin-bottom: 12px;
+    }
+    .upload-info {
+      margin-top: 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--success);
+      display: none;
+    }
+    .upload-card.loaded .upload-info {
+      display: block;
+    }
+    .upload-card.loaded .upload-hint {
+      display: none;
+    }
+    .upload-hint {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    /* Actions */
+    .actions-section {
+      text-align: center;
+      margin-bottom: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-process {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 14px 36px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+    .btn-process:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+    .btn-process:disabled {
+      background: var(--gray-300);
+      color: var(--gray-600);
+      cursor: not-allowed;
+      box-shadow: none;
+      opacity: 0.8;
+    }
+
+    /* Alert / Validation */
+    .alert-box {
+      display: none;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .alert-box.show {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    /* Results Dashboard */
+    .results-container {
+      display: none;
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      margin-bottom: 24px;
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .results-title h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+    .results-title p {
+      font-size: 13px;
+      color: var(--gray-600);
+    }
+
+    .btn-download {
+      background: #059669;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 10px rgba(5, 150, 105, 0.2);
+    }
+    .btn-download:hover {
+      background: #047857;
+      transform: translateY(-1px);
+    }
+
+    /* Stat Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-card.sama {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+    .stat-card.beda {
+      border-color: #fde68a;
+      background: #fffbeb;
+    }
+    .stat-card.missing {
+      border-color: #fca5a5;
+      background: #fef2f2;
+    }
+    .stat-card.purple {
+      border-color: #d8b4fe;
+      background: #faf5ff;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 4px;
+    }
+    .stat-card.sama .stat-value { color: #15803d; }
+    .stat-card.beda .stat-value { color: #b45309; }
+    .stat-card.missing .stat-value { color: #b91c1c; }
+    .stat-card.purple .stat-value { color: #7e22ce; }
+
+    .stat-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--gray-600);
+    }
+
+    /* Tabs for preview */
+    .preview-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--gray-200);
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+    .preview-tab {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-600);
+      border: none;
+      background: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+    }
+    .preview-tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    /* Table Preview */
+    .table-wrapper {
+      max-height: 380px;
+      overflow: auto;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    th {
+      background: var(--gray-100);
+      color: var(--gray-700);
+      padding: 8px 12px;
+      position: sticky;
+      top: 0;
+      font-weight: 600;
+      border-bottom: 1px solid var(--gray-300);
+      white-space: nowrap;
+      z-index: 10;
+    }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--gray-200);
+      white-space: nowrap;
+      color: var(--gray-800);
+    }
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+    tr:hover {
+      background: #f1f5f9;
+    }
+
+    /* Status Badges in Table */
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .pill-sama {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+    .pill-beda {
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
+    .pill-missing {
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+    .pill-purple {
+      background: var(--purple-bg);
+      color: var(--purple);
+    }
+
+    /* Guide Box */
+    .guide-card {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-top: 24px;
+    }
+    .guide-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .guide-card ul {
+      padding-left: 20px;
+      font-size: 13px;
+      color: var(--gray-600);
+    }
+    .guide-card li {
+      margin-bottom: 4px;
+    }
+
+    /* Module toggle visibility */
+    .module-view {
+      display: none;
+    }
+    .module-view.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Top Module Navigation Tabs -->
+    <div class="nav-tabs-container">
+      <div class="nav-tabs">
+        <button id="tabNavTransaksi" class="nav-btn active" onclick="switchModule('transaksi')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Rekonsiliasi Transaksi
+        </button>
+        <button id="tabNavMember" class="nav-btn" onclick="switchModule('member')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Rekonsiliasi Member
+        </button>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODULE 1: REKONSILIASI TRANSAKSI                                       -->
+    <!-- ===================================================================== -->
+    <div id="moduleTransaksi" class="module-view active">
+      
+      <!-- Header -->
+      <div class="header">
+        <h1>Rekonsiliasi Point POS & Magento</h1>
+        <p>Unggah file transaksi POS dan file data Magento untuk mencocokkan perolehan point secara instan, memisahkan non-member, dan mengunduh laporan lengkap 4 sheet.</p>
+      </div>
+
+      <!-- Alert / Auto-detection banner -->
+      <div id="alertBox" class="alert-box">
+        <span id="alertMsg">Pesan informasi</span>
+        <button id="btnSwap" class="btn-demo" style="display: none;">Tukar Posisi File</button>
+      </div>
+
+      <!-- Upload Section -->
+      <div class="upload-grid">
+        
+        <!-- Box 1: File POS -->
+        <div class="upload-card" id="cardPos" onclick="document.getElementById('inputPos').click()">
+          <input type="file" id="inputPos" accept=".xlsx,.xls,.csv" onchange="handleFileSelected(event, 'POS')">
+          <div class="upload-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          </div>
+          <div class="upload-title">File 1: Data POS (Member & Kasir)</div>
+          <div class="upload-desc">File transaksi dengan kolom <code>nops</code>, <code>mbrps</code>, <code>pointrpps</code></div>
+          <div class="upload-hint">Klik atau Tarik File ke Sini (.xlsx / .xls)</div>
+          <div class="upload-info" id="infoPos">✓ File terpilih</div>
+        </div>
+
+        <!-- Box 2: File Magento -->
+        <div class="upload-card" id="cardMagento" onclick="document.getElementById('inputMagento').click()">
+          <input type="file" id="inputMagento" accept=".xlsx,.xls,.csv" onchange="handleFileSelected(event, 'MAGENTO')">
+          <div class="upload-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          </div>
+          <div class="upload-title">File 2: Data Magento</div>
+          <div class="upload-desc">File Magento dengan kolom <code>Transaction No.</code>, <code>Point</code></div>
+          <div class="upload-hint">Klik atau Tarik File ke Sini (.xlsx / .xls)</div>
+          <div class="upload-info" id="infoMagento">✓ File terpilih</div>
+        </div>
+
+      </div>
+
+      <!-- Actions Section -->
+      <div class="actions-section">
+        <button id="btnProcess" class="btn-process" disabled onclick="runReconciliation()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Proses Rekonsiliasi
+        </button>
+      </div>
+
+      <!-- Results Section -->
+      <div id="resultsSection" class="results-container">
+        
+        <div class="results-header">
+          <div class="results-title">
+            <h2>Hasil Rekonsiliasi Transaksi</h2>
+            <p id="processedTimeText">Diproses pada waktu setempat</p>
+          </div>
+          <button id="btnDownload" class="btn-download" onclick="downloadResultExcel()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download File Hasil (.xlsx)
+          </button>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statTotalMember">0</div>
+            <div class="stat-label">Total Member</div>
+          </div>
+          <div class="stat-card sama">
+            <div class="stat-value" id="statSama">0</div>
+            <div class="stat-label">Point Cocok (SAMA)</div>
+          </div>
+          <div class="stat-card beda">
+            <div class="stat-value" id="statBeda">0</div>
+            <div class="stat-label">Nilai Berbeda</div>
+          </div>
+          <div class="stat-card missing">
+            <div class="stat-value" id="statMissing">0</div>
+            <div class="stat-label">Tidak di Magento</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statNonMember">0</div>
+            <div class="stat-label">Non-Member (9999999999)</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="preview-tabs">
+          <button class="preview-tab active" onclick="switchTab('member')">Preview: DATA MEMBER</button>
+          <button class="preview-tab" onclick="switchTab('non_member')">Preview: DATA NON MEMBER</button>
+          <button class="preview-tab" onclick="switchTab('magento')">Preview: DATA MAGENTO</button>
+          <button class="preview-tab" onclick="switchTab('rekap')">Preview: REKAP BERSIH</button>
+        </div>
+
+        <!-- Table View -->
+        <div class="table-wrapper" id="previewTableContainer">
+          <table id="previewTable">
+            <thead><tr id="previewThead"></tr></thead>
+            <tbody id="previewTbody"></tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Guide / Notes -->
+      <div class="guide-card">
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Aturan & Rumus Otomatis (Transaksi):
+        </h3>
+        <ul>
+          <li><strong>Pemisahan Non-Member:</strong> Baris data POS dengan kolom <code>mbrps == 9999999999</code> otomatis dipisah ke sheet <code>DATA NON MEMBER</code>.</li>
+          <li><strong>Point Positif & Negatif Magento:</strong> <code>Point Positif = IF(Point > 0, Point, 0)</code> dan <code>Point Negatif = IF(Point < 0, Point, 0)</code>.</li>
+          <li><strong>Sheet Rekap Bersih:</strong> Dibuat otomatis mengambil kolom <code>Transaction No.</code>, <code>Point Positif</code>, dan <code>Point Negatif</code>.</li>
+          <li><strong>Point Magento:</strong> Diambil dari Rekap Bersih (jika <code>pointrpps > 0</code> ambil positif, jika tidak ambil negatif). Jika tidak ada diisi <code>"Tidak ditemukan"</code>.</li>
+          <li><strong>Status & Keterangan:</strong> 
+            Status menghasilkan <code>"SAMA"</code> (Keterangan: <em>Point cocok</em>), <code>"TRANSAKSI TIDAK DITEMUKAN"</code> (Keterangan: <em>Tidak ada pada Magento</em>), atau <code>"TIDAK SAMA"</code> (Keterangan: <em>Nilai berbeda</em>).
+          </li>
+          <li><strong>Summary Box:</strong> Otomatis ditambahkan di samping tabel sheet <code>DATA MEMBER</code>.</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODULE 2: REKONSILIASI MEMBER                                          -->
+    <!-- ===================================================================== -->
+    <div id="moduleMember" class="module-view">
+      
+      <!-- Header -->
+      <div class="header">
+        <h1>Rekonsiliasi Data Member POS & Magento</h1>
+        <p>Unggah file Data Member POS dan file Data Member Magento untuk memvalidasi nama, mencocokkan saldo point, mendeteksi duplikat, dan mengunduh laporan 3 sheet.</p>
+      </div>
+
+      <!-- Alert Member banner -->
+      <div id="alertBoxMember" class="alert-box">
+        <span id="alertMsgMember">Pesan informasi</span>
+        <button id="btnSwapMember" class="btn-demo" style="display: none;">Tukar Posisi File</button>
+      </div>
+
+      <!-- Upload Section Member -->
+      <div class="upload-grid">
+        
+        <!-- Box 1: File Member POS -->
+        <div class="upload-card" id="cardMemberPos" onclick="document.getElementById('inputMemberPos').click()">
+          <input type="file" id="inputMemberPos" accept=".xlsx,.xls,.csv" onchange="handleMemberFileSelected(event, 'POS')">
+          <div class="upload-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="upload-title">File 1: Data Member POS (DATA MEMBER PUSAT)</div>
+          <div class="upload-desc">File member dengan kolom <code>kdmbr</code>, <code>nmmbr</code>, <code>poinmbr</code></div>
+          <div class="upload-hint">Klik atau Tarik File ke Sini (.xlsx / .xls)</div>
+          <div class="upload-info" id="infoMemberPos">✓ File terpilih</div>
+        </div>
+
+        <!-- Box 2: File Member Magento -->
+        <div class="upload-card" id="cardMemberMagento" onclick="document.getElementById('inputMemberMagento').click()">
+          <input type="file" id="inputMemberMagento" accept=".xlsx,.xls,.csv" onchange="handleMemberFileSelected(event, 'MAGENTO')">
+          <div class="upload-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="upload-title">File 2: Data Member Magento</div>
+          <div class="upload-desc">File member dengan kolom <code>Lac No.</code>, <code>Name</code>, <code>Point</code></div>
+          <div class="upload-hint">Klik atau Tarik File ke Sini (.xlsx / .xls)</div>
+          <div class="upload-info" id="infoMemberMagento">✓ File terpilih</div>
+        </div>
+
+      </div>
+
+      <!-- Actions Section Member -->
+      <div class="actions-section">
+        <button id="btnProcessMember" class="btn-process" disabled onclick="runMemberReconciliation()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Proses Rekonsiliasi Member
+        </button>
+      </div>
+
+      <!-- Results Section Member -->
+      <div id="resultsSectionMember" class="results-container">
+        
+        <div class="results-header">
+          <div class="results-title">
+            <h2>Hasil Rekonsiliasi Member</h2>
+            <p id="processedTimeTextMember">Diproses pada waktu setempat</p>
+          </div>
+          <button id="btnDownloadMember" class="btn-download" onclick="downloadMemberResultExcel()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download File Hasil Member (.xlsx)
+          </button>
+        </div>
+
+        <!-- Stat Cards Member -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statMemberTotal">0</div>
+            <div class="stat-label">Total Seluruh Data</div>
+          </div>
+          <div class="stat-card sama">
+            <div class="stat-value" id="statMemberSesuai">0</div>
+            <div class="stat-label">Data Sesuai (Nama & Point)</div>
+          </div>
+          <div class="stat-card beda">
+            <div class="stat-value" id="statMemberNamaBeda">0</div>
+            <div class="stat-label">Nama Tidak Sesuai</div>
+          </div>
+          <div class="stat-card beda">
+            <div class="stat-value" id="statMemberPointBeda">0</div>
+            <div class="stat-label">Point Tidak Sesuai</div>
+          </div>
+          <div class="stat-card missing">
+            <div class="stat-value" id="statMemberMissing">0</div>
+            <div class="stat-label">Tidak di Magento</div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-value" id="statMemberDuplikat">0</div>
+            <div class="stat-label">Duplikat kdmbr</div>
+          </div>
+        </div>
+
+        <!-- Tabs Member -->
+        <div class="preview-tabs">
+          <button class="preview-tab active" onclick="switchMemberTab('analisis')">Preview: HASIL ANALISIS</button>
+          <button class="preview-tab" onclick="switchMemberTab('pos_pusat')">Preview: DATA MEMBER PUSAT</button>
+          <button class="preview-tab" onclick="switchMemberTab('magento_pusat')">Preview: MAGENTO DATA MEMBER PUSAT</button>
+        </div>
+
+        <!-- Table View Member -->
+        <div class="table-wrapper" id="previewTableContainerMember">
+          <table id="previewTableMember">
+            <thead><tr id="previewTheadMember"></tr></thead>
+            <tbody id="previewTbodyMember"></tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Guide / Notes Member -->
+      <div class="guide-card">
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Aturan & Rumus Otomatis (Member):
+        </h3>
+        <ul>
+          <li><strong>LAC No (Key):</strong> Standarisasi 10 digit (leading zero) pada data Magento dan <code>TRIM(kdmbr)</code> pada data POS.</li>
+          <li><strong>Lookup Data:</strong> Mengambil <code>Nama Magento</code> dan <code>Point Magento</code> berdasarkan <code>LAC No (Key)</code>.</li>
+          <li><strong>Hasil Nama:</strong> Membandingkan Nama POS dan Nama Magento (case-insensitive & trim) $\rightarrow$ <code>SESUAI</code> / <code>TIDAK SESUAI</code>.</li>
+          <li><strong>Hasil Point:</strong> Membandingkan poin POS dengan poin Magento (pembulatan 2 desimal) $\rightarrow$ <code>SAMA</code> / <code>TIDAK SAMA</code>.</li>
+          <li><strong>Validasi Ganda:</strong> <code>VALID (LAC No & Nama cocok)</code> jika nama sesuai, atau <code>PERLU DICEK MANUAL</code> jika nama berbeda.</li>
+          <li><strong>Keterangan:</strong> <code>Data sesuai</code>, <code>Nama berbeda - perlu dicek</code>, <code>Point berbeda</code>, <code>Nama dan Point berbeda - perlu dicek</code>, atau <code>Tidak ditemukan di Magento</code>.</li>
+          <li><strong>Cek Duplikat:</strong> Mendeteksi apakah <code>kdmbr</code> muncul lebih dari satu kali $\rightarrow$ <code>DUPLIKAT</code> / <code>TIDAK DUPLIKAT</code>.</li>
+        </ul>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // =========================================================================
+    // NAVIGATION CONTROLLER
+    // =========================================================================
+    function switchModule(moduleName) {
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.module-view').forEach(view => view.classList.remove('active'));
+
+      if (moduleName === 'transaksi') {
+        document.getElementById('tabNavTransaksi').classList.add('active');
+        document.getElementById('moduleTransaksi').classList.add('active');
+      } else {
+        document.getElementById('tabNavMember').classList.add('active');
+        document.getElementById('moduleMember').classList.add('active');
+      }
+    }
+
+    // Helper: case-insensitive header finder
+    function findColIndex(headers, regexList) {
+      for (let regex of regexList) {
+        const idx = headers.findIndex(h => regex.test(String(h || '').trim()));
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    }
+
+    // =========================================================================
+    // MODULE 1: TRANSAKSI POS & MAGENTO
+    // =========================================================================
+    let rawPosData = null;
+    let rawMagentoData = null;
+    let reconciledWorkbook = null;
+    let previewDataStore = {};
+
+    ['cardPos', 'cardMagento'].forEach(id => {
+      const card = document.getElementById(id);
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        card.classList.add('drag-over');
+      });
+      card.addEventListener('dragleave', () => {
+        card.classList.remove('drag-over');
+      });
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          const type = id === 'cardPos' ? 'POS' : 'MAGENTO';
+          readFile(files[0], type);
+        }
+      });
+    });
+
+    function handleFileSelected(event, type) {
+      const file = event.target.files[0];
+      if (file) readFile(file, type);
+    }
+
+    function showAlert(message, showSwap = false) {
+      const alertBox = document.getElementById('alertBox');
+      const alertMsg = document.getElementById('alertMsg');
+      const btnSwap = document.getElementById('btnSwap');
+      alertMsg.textContent = message;
+      btnSwap.style.display = showSwap ? 'inline-block' : 'none';
+      alertBox.classList.add('show');
+    }
+
+    function hideAlert() {
+      document.getElementById('alertBox').classList.remove('show');
+    }
+
+    function readFile(file, expectedType) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+          if (!aoa || aoa.length === 0) {
+            alert('File kosong atau tidak dapat dibaca!');
+            return;
+          }
+
+          const headers = aoa[0].map(h => String(h || '').trim());
+          const isPos = headers.includes('cstps') || headers.includes('nops') || headers.includes('mbrps');
+          const isMagento = headers.some(h => /transaction\s*no/i.test(h)) || headers.some(h => /^point$/i.test(h));
+
+          if (expectedType === 'POS') {
+            if (isMagento && !isPos) {
+              showAlert('⚠️ File yang dimasukkan terdeteksi sebagai File Magento. Ingin menukarnya ke kotak Magento?', true);
+              document.getElementById('btnSwap').onclick = () => {
+                setMagentoFile(file.name, aoa);
+                rawPosData = null;
+                updateCardUI('POS', null);
+                hideAlert();
+              };
+              return;
+            }
+            setPosFile(file.name, aoa);
+          } else {
+            if (isPos && !isMagento) {
+              showAlert('⚠️ File yang dimasukkan terdeteksi sebagai File POS. Ingin menukarnya ke kotak POS?', true);
+              document.getElementById('btnSwap').onclick = () => {
+                setPosFile(file.name, aoa);
+                rawMagentoData = null;
+                updateCardUI('MAGENTO', null);
+                hideAlert();
+              };
+              return;
+            }
+            setMagentoFile(file.name, aoa);
+          }
+
+          hideAlert();
+          checkReadyToProcess();
+        } catch (err) {
+          console.error(err);
+          alert('Terjadi kesalahan saat membaca file Excel: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function setPosFile(fileName, aoa) {
+      rawPosData = { fileName, aoa };
+      updateCardUI('POS', fileName, aoa.length - 1);
+    }
+
+    function setMagentoFile(fileName, aoa) {
+      rawMagentoData = { fileName, aoa };
+      updateCardUI('MAGENTO', fileName, aoa.length - 1);
+    }
+
+    function updateCardUI(type, fileName, rowCount) {
+      const card = document.getElementById(type === 'POS' ? 'cardPos' : 'cardMagento');
+      const info = document.getElementById(type === 'POS' ? 'infoPos' : 'infoMagento');
+      if (fileName) {
+        card.classList.add('loaded');
+        info.innerHTML = `✓ <strong>${fileName}</strong> (${rowCount} baris data)`;
+      } else {
+        card.classList.remove('loaded');
+        info.innerHTML = '';
+      }
+    }
+
+    function checkReadyToProcess() {
+      const btn = document.getElementById('btnProcess');
+      btn.disabled = !(rawPosData && rawMagentoData);
+    }
+
+    function runReconciliation() {
+      if (!rawPosData || !rawMagentoData) return;
+
+      const posRows = rawPosData.aoa;
+      const magRows = rawMagentoData.aoa;
+
+      if (posRows.length < 2 || magRows.length < 2) {
+        alert('Salah satu file tidak memiliki baris data!');
+        return;
+      }
+
+      const posHeaders = [...posRows[0]];
+      const colNops = findColIndex(posHeaders, [/^nops$/i, /no\s*ps/i]);
+      const colMbrps = findColIndex(posHeaders, [/^mbrps$/i, /member/i]);
+      const colPointRpps = findColIndex(posHeaders, [/^pointrpps$/i, /point\s*rp\s*ps/i]);
+      const colPointRp2ps = findColIndex(posHeaders, [/^pointrp2ps$/i, /point\s*rp\s*2\s*ps/i]);
+
+      if (colNops === -1) {
+        alert('Kolom "nops" (Nomor Transaksi) tidak ditemukan pada File POS!');
+        return;
+      }
+
+      const magHeaders = [...magRows[0]];
+      const colMagTxNo = findColIndex(magHeaders, [/transaction\s*no/i, /^tx\s*no$/i]);
+      const colMagPoint = findColIndex(magHeaders, [/^point$/i]);
+
+      if (colMagTxNo === -1 || colMagPoint === -1) {
+        alert('Kolom "Transaction No." atau "Point" tidak ditemukan pada File Magento!');
+        return;
+      }
+
+      const magantoOutputHeaders = [...magHeaders, 'Point Positif', 'Point Negatif'];
+      const magentoOutputRows = [magantoOutputHeaders];
+      
+      const rekapBersihHeaders = ['Transaction No.', 'Point Positif', 'Point Negatif'];
+      const rekapBersihRows = [rekapBersihHeaders];
+
+      const magentoLookupMap = new Map();
+
+      for (let i = 1; i < magRows.length; i++) {
+        const row = [...magRows[i]];
+        while (row.length < magHeaders.length) row.push('');
+
+        const rawPoint = row[colMagPoint];
+        const numPoint = Number(rawPoint) || 0;
+
+        const pointPositif = numPoint > 0 ? numPoint : 0;
+        const pointNegatif = numPoint < 0 ? numPoint : 0;
+
+        row.push(pointPositif);
+        row.push(pointNegatif);
+        magentoOutputRows.push(row);
+
+        const txNo = String(row[colMagTxNo] || '').trim();
+        rekapBersihRows.push([txNo, pointPositif, pointNegatif]);
+
+        if (txNo && !magentoLookupMap.has(txNo)) {
+          magentoLookupMap.set(txNo, {
+            pointPositif: pointPositif,
+            pointNegatif: pointNegatif
+          });
+        }
+      }
+
+      const memberOutputHeaders = [...posHeaders, 'Point Magento', 'Status', 'Keterangan'];
+      const memberRows = [memberOutputHeaders];
+      const nonMemberRows = [[...posHeaders]];
+
+      let countSama = 0;
+      let countTidakSama = 0;
+      let countTidakDitemukan = 0;
+
+      for (let i = 1; i < posRows.length; i++) {
+        const row = [...posRows[i]];
+        while (row.length < posHeaders.length) row.push('');
+
+        const mbrpsVal = String(row[colMbrps] || '').trim();
+
+        if (mbrpsVal === '9999999999') {
+          nonMemberRows.push(row);
+          continue;
+        }
+
+        const nopsVal = String(row[colNops] || '').trim();
+        const pointRpps = Number(row[colPointRpps]) || 0;
+        const pointRp2ps = Number(row[colPointRp2ps]) || 0;
+
+        let pointMagento = 'Tidak ditemukan';
+        let status = '';
+        let keterangan = '';
+
+        if (magentoLookupMap.has(nopsVal)) {
+          const match = magentoLookupMap.get(nopsVal);
+          pointMagento = (pointRpps > 0) ? match.pointPositif : match.pointNegatif;
+        }
+
+        if (pointMagento === 'Tidak ditemukan') {
+          status = 'TRANSAKSI TIDAK DITEMUKAN';
+          keterangan = 'Tidak ada pada Magento';
+          countTidakDitemukan++;
+        } else {
+          const numPtMag = Number(pointMagento);
+          const isSama = (numPtMag === pointRpps) || 
+                         (Math.abs(numPtMag) === Math.abs(pointRp2ps)) || 
+                         (numPtMag === pointRp2ps);
+          if (isSama) {
+            status = 'SAMA';
+            keterangan = 'Point cocok';
+            countSama++;
+          } else {
+            status = 'TIDAK SAMA';
+            keterangan = 'Nilai berbeda';
+            countTidakSama++;
+          }
+        }
+
+        row.push(pointMagento);
+        row.push(status);
+        row.push(keterangan);
+        memberRows.push(row);
+      }
+
+      const totalMember = memberRows.length - 1;
+      const totalNonMember = nonMemberRows.length - 1;
+
+      const summaryStartCol = memberOutputHeaders.length;
+      function padRow(r, targetLen) {
+        while (r.length < targetLen) r.push('');
+      }
+
+      const summaryItems = [
+        ['', ''],
+        ['', ''],
+        ['Total Member', totalMember],
+        ['SAMA', countSama],
+        ['TIDAK SAMA', countTidakSama],
+        ['TRANSAKSI TIDAK DITEMUKAN', countTidakDitemukan]
+      ];
+
+      for (let sIdx = 0; sIdx < summaryItems.length; sIdx++) {
+        const rowIdx = sIdx + 1;
+        if (rowIdx < memberRows.length) {
+          padRow(memberRows[rowIdx], summaryStartCol);
+          memberRows[rowIdx].push(summaryItems[sIdx][0]);
+          memberRows[rowIdx].push(summaryItems[sIdx][1]);
+        }
+      }
+
+      // Helper: Pasang AutoFilter pada baris 1 header
+      function applyAutoFilter(ws, numCols, numRows) {
+        if (!ws || numRows <= 1 || numCols <= 0) return;
+        ws['!autofilter'] = {
+          ref: XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: numRows - 1, c: numCols - 1 }
+          })
+        };
+      }
+
+      const wb = XLSX.utils.book_new();
+      const wsMember = XLSX.utils.aoa_to_sheet(memberRows);
+      const wsNonMember = XLSX.utils.aoa_to_sheet(nonMemberRows);
+      const wsMagento = XLSX.utils.aoa_to_sheet(magentoOutputRows);
+      const wsRekap = XLSX.utils.aoa_to_sheet(rekapBersihRows);
+
+      // Pasang AutoFilter pada header baris 1
+      applyAutoFilter(wsMember, memberOutputHeaders.length, memberRows.length);
+      applyAutoFilter(wsNonMember, posHeaders.length, nonMemberRows.length);
+      applyAutoFilter(wsMagento, magantoOutputHeaders.length, magentoOutputRows.length);
+      applyAutoFilter(wsRekap, rekapBersihHeaders.length, rekapBersihRows.length);
+
+      XLSX.utils.book_append_sheet(wb, wsMember, 'DATA MEMBER');
+      XLSX.utils.book_append_sheet(wb, wsNonMember, 'DATA NON MEMBER');
+      XLSX.utils.book_append_sheet(wb, wsMagento, 'DATA MAGENTO');
+      XLSX.utils.book_append_sheet(wb, wsRekap, 'REKAP BERSIH');
+
+      reconciledWorkbook = wb;
+
+      previewDataStore = {
+        member: memberRows,
+        non_member: nonMemberRows,
+        magento: magentoOutputRows,
+        rekap: rekapBersihRows
+      };
+
+      document.getElementById('statTotalMember').textContent = totalMember.toLocaleString();
+      document.getElementById('statSama').textContent = countSama.toLocaleString();
+      document.getElementById('statBeda').textContent = countTidakSama.toLocaleString();
+      document.getElementById('statMissing').textContent = countTidakDitemukan.toLocaleString();
+      document.getElementById('statNonMember').textContent = totalNonMember.toLocaleString();
+
+      const now = new Date();
+      document.getElementById('processedTimeText').textContent = 
+        `Diproses ${now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} pukul ${now.toLocaleTimeString('id-ID')}`;
+
+      document.getElementById('resultsSection').style.display = 'block';
+      switchTab('member');
+      document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function switchTab(tabKey) {
+      document.querySelectorAll('#moduleTransaksi .preview-tab').forEach(b => b.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('#moduleTransaksi .preview-tab')).find(b => b.getAttribute('onclick').includes(tabKey));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const data = previewDataStore[tabKey];
+      if (!data || data.length === 0) return;
+
+      const thead = document.getElementById('previewThead');
+      const tbody = document.getElementById('previewTbody');
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+
+      const headers = data[0].slice(0, 32);
+      headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h || '-';
+        thead.appendChild(th);
+      });
+
+      const previewRows = data.slice(1, 21);
+      previewRows.forEach(row => {
+        const tr = document.createElement('tr');
+        for (let c = 0; c < headers.length; c++) {
+          const td = document.createElement('td');
+          const val = row[c] !== undefined ? row[c] : '';
+          
+          if (val === 'SAMA') {
+            td.innerHTML = '<span class="pill pill-sama">SAMA</span>';
+          } else if (val === 'TIDAK SAMA') {
+            td.innerHTML = '<span class="pill pill-beda">TIDAK SAMA</span>';
+          } else if (val === 'TRANSAKSI TIDAK DITEMUKAN') {
+            td.innerHTML = '<span class="pill pill-missing">TRANSAKSI TIDAK DITEMUKAN</span>';
+          } else {
+            td.textContent = val;
+          }
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      });
+    }
+
+    function downloadResultExcel() {
+      if (!reconciledWorkbook) {
+        alert('Belum ada data rekonsiliasi untuk diunduh!');
+        return;
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `Rekonsiliasi_POS_Magento_${today}.xlsx`;
+      XLSX.writeFile(reconciledWorkbook, filename);
+    }
+
+    // =========================================================================
+    // MODULE 2: REKONSILIASI DATA MEMBER
+    // =========================================================================
+    let rawMemberPosData = null;
+    let rawMemberMagentoData = null;
+    let reconciledMemberWorkbook = null;
+    let previewMemberDataStore = {};
+
+    ['cardMemberPos', 'cardMemberMagento'].forEach(id => {
+      const card = document.getElementById(id);
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        card.classList.add('drag-over');
+      });
+      card.addEventListener('dragleave', () => {
+        card.classList.remove('drag-over');
+      });
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          const type = id === 'cardMemberPos' ? 'POS' : 'MAGENTO';
+          readMemberFile(files[0], type);
+        }
+      });
+    });
+
+    function handleMemberFileSelected(event, type) {
+      const file = event.target.files[0];
+      if (file) readMemberFile(file, type);
+    }
+
+    function showMemberAlert(message, showSwap = false) {
+      const alertBox = document.getElementById('alertBoxMember');
+      const alertMsg = document.getElementById('alertMsgMember');
+      const btnSwap = document.getElementById('btnSwapMember');
+      alertMsg.textContent = message;
+      btnSwap.style.display = showSwap ? 'inline-block' : 'none';
+      alertBox.classList.add('show');
+    }
+
+    function hideMemberAlert() {
+      document.getElementById('alertBoxMember').classList.remove('show');
+    }
+
+    function readMemberFile(file, expectedType) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+          if (!aoa || aoa.length === 0) {
+            alert('File kosong atau tidak dapat dibaca!');
+            return;
+          }
+
+          const headers = aoa[0].map(h => String(h || '').trim());
+          const isPos = headers.includes('kdmbr') || headers.includes('nmmbr') || headers.includes('cstmbr');
+          const isMagento = headers.some(h => /lac\s*no/i.test(h)) || headers.some(h => /last\s*point\s*up/i.test(h));
+
+          if (expectedType === 'POS') {
+            if (isMagento && !isPos) {
+              showMemberAlert('⚠️ File terdeteksi sebagai File Member Magento. Ingin menukarnya?', true);
+              document.getElementById('btnSwapMember').onclick = () => {
+                setMemberMagentoFile(file.name, aoa);
+                rawMemberPosData = null;
+                updateMemberCardUI('POS', null);
+                hideMemberAlert();
+              };
+              return;
+            }
+            setMemberPosFile(file.name, aoa);
+          } else {
+            if (isPos && !isMagento) {
+              showMemberAlert('⚠️ File terdeteksi sebagai File Member POS. Ingin menukarnya?', true);
+              document.getElementById('btnSwapMember').onclick = () => {
+                setMemberPosFile(file.name, aoa);
+                rawMemberMagentoData = null;
+                updateMemberCardUI('MAGENTO', null);
+                hideMemberAlert();
+              };
+              return;
+            }
+            setMemberMagentoFile(file.name, aoa);
+          }
+
+          hideMemberAlert();
+          checkMemberReadyToProcess();
+        } catch (err) {
+          console.error(err);
+          alert('Terjadi kesalahan membaca file Excel Member: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function setMemberPosFile(fileName, aoa) {
+      rawMemberPosData = { fileName, aoa };
+      updateMemberCardUI('POS', fileName, aoa.length - 1);
+    }
+
+    function setMemberMagentoFile(fileName, aoa) {
+      rawMemberMagentoData = { fileName, aoa };
+      updateMemberCardUI('MAGENTO', fileName, aoa.length - 1);
+    }
+
+    function updateMemberCardUI(type, fileName, rowCount) {
+      const card = document.getElementById(type === 'POS' ? 'cardMemberPos' : 'cardMemberMagento');
+      const info = document.getElementById(type === 'POS' ? 'infoMemberPos' : 'infoMemberMagento');
+      if (fileName) {
+        card.classList.add('loaded');
+        info.innerHTML = `✓ <strong>${fileName}</strong> (${rowCount} baris data)`;
+      } else {
+        card.classList.remove('loaded');
+        info.innerHTML = '';
+      }
+    }
+
+    function checkMemberReadyToProcess() {
+      const btn = document.getElementById('btnProcessMember');
+      btn.disabled = !(rawMemberPosData && rawMemberMagentoData);
+    }
+
+    // Helper: Normalize LAC number to 10-digit if purely numeric
+    function normalizeLacKey(val) {
+      const s = String(val !== undefined && val !== null ? val : '').trim();
+      if (!s) return '';
+      if (/^\d+$/.test(s)) {
+        return s.padStart(10, '0');
+      }
+      return s;
+    }
+
+    function runMemberReconciliation() {
+      if (!rawMemberPosData || !rawMemberMagentoData) return;
+
+      const posRows = rawMemberPosData.aoa;
+      const magRows = rawMemberMagentoData.aoa;
+
+      if (posRows.length < 2 || magRows.length < 2) {
+        alert('Salah satu file member tidak memiliki baris data!');
+        return;
+      }
+
+      // 1. Identify Magento columns
+      const magHeaders = [...magRows[0]];
+      const colMagLacNo = findColIndex(magHeaders, [/^lac\s*no\.?$/i, /lac\s*no/i]);
+      const colMagName = findColIndex(magHeaders, [/^name$/i, /^nama$/i]);
+      const colMagPoint = findColIndex(magHeaders, [/^point$/i, /poin/i]);
+
+      if (colMagLacNo === -1 || colMagName === -1 || colMagPoint === -1) {
+        alert('Kolom "Lac No.", "Name", atau "Point" tidak ditemukan pada file Member Magento!');
+        return;
+      }
+
+      // Process Magento: add LAC No (Key)
+      const magentoOutputHeaders = [...magHeaders, 'LAC No (Key)'];
+      const magentoOutputRows = [magentoOutputHeaders];
+
+      // Map for fast lookup: normalized LAC Key -> { name, point }
+      const magentoMemberMap = new Map();
+
+      for (let i = 1; i < magRows.length; i++) {
+        const row = [...magRows[i]];
+        while (row.length < magHeaders.length) row.push('');
+
+        const rawLac = row[colMagLacNo];
+        const lacKey = normalizeLacKey(rawLac);
+        row.push(lacKey);
+        magentoOutputRows.push(row);
+
+        if (lacKey && !magentoMemberMap.has(lacKey)) {
+          const rawPoint = row[colMagPoint];
+          const numPoint = Number(rawPoint) || 0;
+          magentoMemberMap.set(lacKey, {
+            name: String(row[colMagName] || '').trim(),
+            point: numPoint
+          });
+        }
+      }
+
+      // 2. Identify POS Member columns
+      const posHeaders = [...posRows[0]];
+      const colKdmbr = findColIndex(posHeaders, [/^kdmbr$/i, /kd\s*mbr/i]);
+      const colNmmbr = findColIndex(posHeaders, [/^nmmbr$/i, /nm\s*mbr/i, /nama/i]);
+      // Search specifically for poinrpmbr (kolom S pada POS)
+      let colPoinmbr = findColIndex(posHeaders, [/^poinrpmbr$/i, /^poin\s*rp\s*mbr$/i]);
+      if (colPoinmbr === -1) {
+        // Fallback jika nama persis tidak ada
+        colPoinmbr = findColIndex(posHeaders, [/poin/i]);
+      }
+      if (colPoinmbr === -1) colPoinmbr = 0;
+
+      if (colKdmbr === -1 || colNmmbr === -1) {
+        alert('Kolom "kdmbr" atau "nmmbr" tidak ditemukan pada file Member POS!');
+        return;
+      }
+
+      // Count frequency of kdmbr for Cek Duplikat
+      const kdmbrFreq = new Map();
+      for (let i = 1; i < posRows.length; i++) {
+        const k = String(posRows[i][colKdmbr] || '').trim();
+        if (k) {
+          kdmbrFreq.set(k, (kdmbrFreq.get(k) || 0) + 1);
+        }
+      }
+
+      // Prepare DATA MEMBER PUSAT Output
+      const posOutputHeaders = [
+        ...posHeaders,
+        'LAC No (Key)',
+        'Nama Magento',
+        'Point Magento',
+        'Hasil Nama',
+        'Hasil Point',
+        'Validasi Ganda',
+        'Keterangan',
+        'Cek Duplikat DataMember'
+      ];
+      const posOutputRows = [posOutputHeaders];
+
+      // Prepare HASIL ANALISIS Output
+      const analisisHeaders = [
+        'kdmbr',
+        'nmmbr',
+        posHeaders[colPoinmbr] || 'poinmbr',
+        'LAC No (Key)',
+        'Nama Magento',
+        'Point Magento',
+        'Hasil Nama',
+        'Hasil Point',
+        'Validasi Ganda',
+        'Keterangan',
+        'Cek Duplikat DataMember'
+      ];
+      const analisisRows = [analisisHeaders];
+
+      // Statistics counters
+      let statTotal = posRows.length - 1;
+      let statSesuai = 0;
+      let statNamaBeda = 0;
+      let statPointBeda = 0;
+      let statMissing = 0;
+      let statDuplikat = 0;
+
+      for (let i = 1; i < posRows.length; i++) {
+        const row = [...posRows[i]];
+        while (row.length < posHeaders.length) row.push('');
+
+        const rawKdmbr = String(row[colKdmbr] || '').trim();
+        const rawNmmbr = String(row[colNmmbr] || '').trim();
+        const rawPoin = row[colPoinmbr];
+        const numPoin = Number(rawPoin) || 0;
+
+        // 1. LAC No (Key)
+        const lacKey = normalizeLacKey(rawKdmbr);
+
+        // 2 & 3. Lookup Nama & Point Magento
+        let namaMagento = 'LAC No TIDAK DITEMUKAN DI MAGENTO';
+        let pointMagento = 'LAC No TIDAK DITEMUKAN DI MAGENTO';
+
+        // Try direct normalized key, or unpadded numeric key
+        let matched = null;
+        if (magentoMemberMap.has(lacKey)) {
+          matched = magentoMemberMap.get(lacKey);
+        } else if (/^\d+$/.test(rawKdmbr)) {
+          const unpadded = String(Number(rawKdmbr));
+          if (magentoMemberMap.has(unpadded)) {
+            matched = magentoMemberMap.get(unpadded);
+          }
+        }
+
+        if (matched) {
+          namaMagento = matched.name;
+          pointMagento = matched.point;
+        }
+
+        // 4. Hasil Nama
+        let hasilNama = '';
+        if (namaMagento === 'LAC No TIDAK DITEMUKAN DI MAGENTO') {
+          hasilNama = 'LAC No TIDAK DITEMUKAN';
+        } else {
+          const cleanPosName = rawNmmbr.toUpperCase();
+          const cleanMagName = String(namaMagento).trim().toUpperCase();
+          hasilNama = (cleanPosName === cleanMagName) ? 'SESUAI' : 'TIDAK SESUAI';
+        }
+
+        // 5. Hasil Point
+        let hasilPoint = '';
+        if (pointMagento === 'LAC No TIDAK DITEMUKAN DI MAGENTO') {
+          hasilPoint = 'LAC No TIDAK DITEMUKAN';
+        } else {
+          const numMagPoint = Number(pointMagento) || 0;
+          const isPointSama = Math.round(numPoin * 100) === Math.round(numMagPoint * 100);
+          hasilPoint = isPointSama ? 'SAMA' : 'TIDAK SAMA';
+        }
+
+        // 6. Validasi Ganda
+        let validasiGanda = '';
+        if (namaMagento === 'LAC No TIDAK DITEMUKAN DI MAGENTO') {
+          validasiGanda = 'LAC No TIDAK DITEMUKAN';
+        } else if (hasilNama === 'SESUAI') {
+          validasiGanda = 'VALID (LAC No & Nama cocok)';
+        } else {
+          validasiGanda = 'PERLU DICEK MANUAL (LAC No ketemu tapi Nama beda)';
+        }
+
+        // 7. Keterangan
+        let keterangan = '';
+        if (hasilNama === 'LAC No TIDAK DITEMUKAN') {
+          keterangan = 'Tidak ditemukan di Magento';
+          statMissing++;
+        } else if (hasilNama === 'SESUAI' && hasilPoint === 'SAMA') {
+          keterangan = 'Data sesuai';
+          statSesuai++;
+        } else if (hasilNama === 'TIDAK SESUAI' && hasilPoint === 'SAMA') {
+          keterangan = 'Nama berbeda - perlu dicek';
+          statNamaBeda++;
+        } else if (hasilNama === 'SESUAI' && hasilPoint === 'TIDAK SAMA') {
+          keterangan = 'Point berbeda';
+          statPointBeda++;
+        } else {
+          keterangan = 'Nama dan Point berbeda - perlu dicek';
+          statNamaBeda++;
+          statPointBeda++;
+        }
+
+        // 8. Cek Duplikat Data Member
+        const isDuplikat = (kdmbrFreq.get(rawKdmbr) || 0) > 1;
+        const cekDuplikat = isDuplikat ? 'DUPLIKAT' : 'TIDAK DUPLIKAT';
+        if (isDuplikat) statDuplikat++;
+
+        // Push to DATA MEMBER PUSAT
+        row.push(lacKey);
+        row.push(namaMagento);
+        row.push(pointMagento);
+        row.push(hasilNama);
+        row.push(hasilPoint);
+        row.push(validasiGanda);
+        row.push(keterangan);
+        row.push(cekDuplikat);
+        posOutputRows.push(row);
+
+        // Push to HASIL ANALISIS
+        analisisRows.push([
+          rawKdmbr,
+          rawNmmbr,
+          numPoin,
+          lacKey,
+          namaMagento,
+          pointMagento,
+          hasilNama,
+          hasilPoint,
+          validasiGanda,
+          keterangan,
+          cekDuplikat
+        ]);
+      }
+
+      // Add Summary Box to HASIL ANALISIS (Columns L & M: index 11 & 12)
+      const summaryItemsMember = [
+        ['', ''],
+        ['', ''],
+        ['Total Seluruh Data', statTotal],
+        ['Data Sesuai (Nama & Point)', statSesuai],
+        ['Nama Tidak Sesuai', statNamaBeda],
+        ['Point Tidak Sesuai', statPointBeda],
+        ['Tidak Ditemukan di Magento', statMissing]
+      ];
+
+      for (let sIdx = 0; sIdx < summaryItemsMember.length; sIdx++) {
+        const rowIdx = sIdx + 1;
+        if (rowIdx < analisisRows.length) {
+          while (analisisRows[rowIdx].length < 11) analisisRows[rowIdx].push('');
+          analisisRows[rowIdx].push(summaryItemsMember[sIdx][0]);
+          analisisRows[rowIdx].push(summaryItemsMember[sIdx][1]);
+        }
+      }
+
+      // Build Workbook 3 Sheets
+      const wb = XLSX.utils.book_new();
+      const wsMemberPusat = XLSX.utils.aoa_to_sheet(posOutputRows);
+      const wsMagentoPusat = XLSX.utils.aoa_to_sheet(magentoOutputRows);
+      const wsAnalisis = XLSX.utils.aoa_to_sheet(analisisRows);
+
+      // Helper: Pasang AutoFilter pada baris 1 header
+      function applyAutoFilterMember(ws, numCols, numRows) {
+        if (!ws || numRows <= 1 || numCols <= 0) return;
+        ws['!autofilter'] = {
+          ref: XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: numRows - 1, c: numCols - 1 }
+          })
+        };
+      }
+
+      // Pasang AutoFilter pada baris 1 header
+      applyAutoFilterMember(wsMemberPusat, posOutputHeaders.length, posOutputRows.length);
+      applyAutoFilterMember(wsMagentoPusat, magentoOutputHeaders.length, magentoOutputRows.length);
+      applyAutoFilterMember(wsAnalisis, 11, analisisRows.length);
+
+      XLSX.utils.book_append_sheet(wb, wsMemberPusat, 'DATA MEMBER PUSAT');
+      XLSX.utils.book_append_sheet(wb, wsMagentoPusat, 'MAGENTO DATA MEMBER PUSAT');
+      XLSX.utils.book_append_sheet(wb, wsAnalisis, 'HASIL ANALISIS');
+
+      reconciledMemberWorkbook = wb;
+
+      previewMemberDataStore = {
+        analisis: analisisRows,
+        pos_pusat: posOutputRows,
+        magento_pusat: magentoOutputRows
+      };
+
+      // Update UI Stats
+      document.getElementById('statMemberTotal').textContent = statTotal.toLocaleString();
+      document.getElementById('statMemberSesuai').textContent = statSesuai.toLocaleString();
+      document.getElementById('statMemberNamaBeda').textContent = statNamaBeda.toLocaleString();
+      document.getElementById('statMemberPointBeda').textContent = statPointBeda.toLocaleString();
+      document.getElementById('statMemberMissing').textContent = statMissing.toLocaleString();
+      document.getElementById('statMemberDuplikat').textContent = statDuplikat.toLocaleString();
+
+      const now = new Date();
+      document.getElementById('processedTimeTextMember').textContent = 
+        `Diproses ${now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} pukul ${now.toLocaleTimeString('id-ID')}`;
+
+      document.getElementById('resultsSectionMember').style.display = 'block';
+      switchMemberTab('analisis');
+      document.getElementById('resultsSectionMember').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function switchMemberTab(tabKey) {
+      document.querySelectorAll('#moduleMember .preview-tab').forEach(b => b.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('#moduleMember .preview-tab')).find(b => b.getAttribute('onclick').includes(tabKey));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const data = previewMemberDataStore[tabKey];
+      if (!data || data.length === 0) return;
+
+      const thead = document.getElementById('previewTheadMember');
+      const tbody = document.getElementById('previewTbodyMember');
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+
+      const headers = data[0].slice(0, 32);
+      headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h || '-';
+        thead.appendChild(th);
+      });
+
+      const previewRows = data.slice(1, 21);
+      previewRows.forEach(row => {
+        const tr = document.createElement('tr');
+        for (let c = 0; c < headers.length; c++) {
+          const td = document.createElement('td');
+          const val = row[c] !== undefined ? row[c] : '';
+          
+          if (val === 'SESUAI' || val === 'SAMA' || val === 'Data sesuai' || String(val).startsWith('VALID')) {
+            td.innerHTML = `<span class="pill pill-sama">${val}</span>`;
+          } else if (val === 'TIDAK SESUAI' || val === 'TIDAK SAMA' || String(val).includes('Point berbeda') || String(val).includes('Nama berbeda')) {
+            td.innerHTML = `<span class="pill pill-beda">${val}</span>`;
+          } else if (String(val).includes('TIDAK DITEMUKAN') || String(val).includes('Tidak ditemukan')) {
+            td.innerHTML = `<span class="pill pill-missing">${val}</span>`;
+          } else if (val === 'DUPLIKAT') {
+            td.innerHTML = `<span class="pill pill-purple">${val}</span>`;
+          } else {
+            td.textContent = val;
+          }
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      });
+    }
+
+    function downloadMemberResultExcel() {
+      if (!reconciledMemberWorkbook) {
+        alert('Belum ada data rekonsiliasi member untuk diunduh!');
+        return;
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `Rekonsiliasi_Member_POS_Magento_${today}.xlsx`;
+      XLSX.writeFile(reconciledMemberWorkbook, filename);
+    }
+  </script>
+</body>
+</html>
