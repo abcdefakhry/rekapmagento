@@ -959,6 +959,22 @@
           <div class="upload-info" id="infoMemberMagento">✓ File terpilih</div>
         </div>
 
+        <!-- Box 3: File Master Toko (Member) -->
+        <div class="upload-card" id="cardMemberToko" onclick="document.getElementById('inputMemberToko').click()">
+          <button type="button" class="btn-remove-file" title="Hapus file ini" onclick="removeMemberFile(event, 'TOKO')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Hapus File
+          </button>
+          <input type="file" id="inputMemberToko" accept=".xlsx,.xls,.csv" onchange="handleMemberFileSelected(event, 'TOKO')">
+          <div class="upload-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          </div>
+          <div class="upload-title">File 3: Master Data Toko</div>
+          <div class="upload-desc">File toko dengan kolom <code>kdcst</code>, <code>nmcst</code></div>
+          <div class="upload-hint">Klik atau Tarik File ke Sini (.xlsx / .xls)</div>
+          <div class="upload-info" id="infoMemberToko">✓ File terpilih</div>
+        </div>
+
       </div>
 
       <!-- Actions Section Member -->
@@ -1069,6 +1085,7 @@
           <li><strong>Validasi Ganda:</strong> <code>VALID (LAC No & Nama cocok)</code> jika nama sesuai, atau <code>PERLU DICEK MANUAL</code> jika nama berbeda.</li>
           <li><strong>Keterangan:</strong> <code>Data sesuai</code>, <code>Nama berbeda - perlu dicek</code>, <code>Point berbeda</code>, <code>Nama dan Point berbeda - perlu dicek</code>, atau <code>Tidak ditemukan di Magento</code>.</li>
           <li><strong>Cek Duplikat:</strong> Mendeteksi apakah <code>kdmbr</code> muncul lebih dari satu kali $\rightarrow$ <code>DUPLIKAT</code> / <code>TIDAK DUPLIKAT</code>.</li>
+          <li><strong>Nama Toko (Otomatis):</strong> Dicocokkan dari <code>cstmbr == kdcst</code> pada File 3 Master Toko dan diletakkan di paling kanan pada sheet <code>DATA MEMBER PUSAT</code> dan sheet <code>HASIL ANALISIS</code>.</li>
         </ul>
       </div>
 
@@ -1737,11 +1754,13 @@
     // =========================================================================
     let rawMemberPosData = null;
     let rawMemberMagentoData = null;
+    let rawMemberTokoData = null;
     let reconciledMemberWorkbook = null;
     let previewMemberDataStore = {};
 
-    ['cardMemberPos', 'cardMemberMagento'].forEach(id => {
+    ['cardMemberPos', 'cardMemberMagento', 'cardMemberToko'].forEach(id => {
       const card = document.getElementById(id);
+      if (!card) return;
       card.addEventListener('dragover', (e) => {
         e.preventDefault();
         card.classList.add('drag-over');
@@ -1754,7 +1773,7 @@
         card.classList.remove('drag-over');
         const files = e.dataTransfer.files;
         if (files.length > 0) {
-          const type = id === 'cardMemberPos' ? 'POS' : 'MAGENTO';
+          const type = id === 'cardMemberPos' ? 'POS' : (id === 'cardMemberMagento' ? 'MAGENTO' : 'TOKO');
           readMemberFile(files[0], type);
         }
       });
@@ -1804,17 +1823,7 @@
           const headers = aoa[0].map(h => String(h || '').trim());
           const detected = detectSpreadsheetType(headers);
 
-          // 1. Cek salah masuk modul: Jika memasukkan file Transaksi / Toko ke modul Member
-          if (detected === 'MASTER_TOKO') {
-            showMemberAlert(`File "${file.name}" terdeteksi sebagai File Master Data Toko. File ini ditujukan untuk modul Rekonsiliasi Transaksi. Ingin beralih ke modul Transaksi?`, true, 'Buka Modul Transaksi');
-            document.getElementById('btnSwapMember').onclick = () => {
-              switchModule('transaksi');
-              setTokoFile(file.name, aoa);
-              hideMemberAlert();
-            };
-            return;
-          }
-
+          // 1. Cek salah masuk modul: Jika memasukkan file Transaksi ke modul Member
           if (detected === 'TX_POS' || detected === 'TX_MAGENTO') {
             const targetModul = 'Rekonsiliasi Data PSH & Magento (Transaksi)';
             const jenisFile = detected === 'TX_POS' ? 'Data Transaksi POS (PSH)' : 'Data Transaksi Magento';
@@ -1832,6 +1841,17 @@
           }
 
           // 2. Cek apakah tertukar kotak di dalam modul Member
+          if (expectedType !== 'TOKO' && detected === 'MASTER_TOKO') {
+            showMemberAlert(`File "${file.name}" terdeteksi sebagai File Master Data Toko. Apakah Anda ingin memindahkannya ke kotak File 3 (Master Toko)?`, true, 'Pindahkan ke Master Toko');
+            document.getElementById('btnSwapMember').onclick = () => {
+              setMemberTokoFile(file.name, aoa);
+              if (expectedType === 'POS') { rawMemberPosData = null; updateMemberCardUI('POS', null); }
+              else { rawMemberMagentoData = null; updateMemberCardUI('MAGENTO', null); }
+              hideMemberAlert();
+            };
+            return;
+          }
+
           if (expectedType === 'POS' && detected === 'MBR_MAGENTO') {
             showMemberAlert(`File "${file.name}" terdeteksi sebagai File Member Magento. Apakah Anda ingin memindahkannya ke kotak Magento?`, true, 'Pindahkan ke Magento');
             document.getElementById('btnSwapMember').onclick = () => {
@@ -1869,7 +1889,7 @@
               return;
             }
             setMemberPosFile(file.name, aoa);
-          } else {
+          } else if (expectedType === 'MAGENTO') {
             const missing = [];
             if (findColIndex(headers, [/^lac\s*no\.?$/i, /lac\s*no/i, /lac/i]) === -1) missing.push('Lac No.');
             if (findColIndex(headers, [/^name$/i, /^nama$/i]) === -1) missing.push('Name');
@@ -1883,6 +1903,19 @@
               return;
             }
             setMemberMagentoFile(file.name, aoa);
+          } else if (expectedType === 'TOKO') {
+            const missing = [];
+            if (findColIndex(headers, [/^kdcst$/i, /^kdcst2$/i, /kd\s*cst/i]) === -1) missing.push('kdcst');
+            if (findColIndex(headers, [/^nmcst$/i, /nm\s*cst/i, /^nama\s*toko$/i]) === -1) missing.push('nmcst');
+
+            if (missing.length > 0) {
+              rawMemberTokoData = null;
+              updateMemberCardUI('TOKO', null);
+              document.getElementById('inputMemberToko').value = '';
+              showMemberAlert(`File "<strong>${file.name}</strong>" tidak valid untuk <strong>File 3: Master Data Toko</strong>! Kolom wajib tidak ditemukan: ${missing.map(c => `<code>${c}</code>`).join(', ')}.`, false);
+              return;
+            }
+            setMemberTokoFile(file.name, aoa);
           }
 
           hideMemberAlert();
@@ -1905,16 +1938,25 @@
       updateMemberCardUI('MAGENTO', fileName, aoa.length - 1);
     }
 
+    function setMemberTokoFile(fileName, aoa) {
+      rawMemberTokoData = { fileName, aoa };
+      updateMemberCardUI('TOKO', fileName, aoa.length - 1);
+    }
+
     function removeMemberFile(event, type) {
       if (event) event.stopPropagation();
       if (type === 'POS') {
         rawMemberPosData = null;
         document.getElementById('inputMemberPos').value = '';
         updateMemberCardUI('POS', null);
-      } else {
+      } else if (type === 'MAGENTO') {
         rawMemberMagentoData = null;
         document.getElementById('inputMemberMagento').value = '';
         updateMemberCardUI('MAGENTO', null);
+      } else if (type === 'TOKO') {
+        rawMemberTokoData = null;
+        document.getElementById('inputMemberToko').value = '';
+        updateMemberCardUI('TOKO', null);
       }
       hideMemberAlert();
       checkMemberReadyToProcess();
@@ -1923,8 +1965,15 @@
     }
 
     function updateMemberCardUI(type, fileName, rowCount) {
-      const card = document.getElementById(type === 'POS' ? 'cardMemberPos' : 'cardMemberMagento');
-      const info = document.getElementById(type === 'POS' ? 'infoMemberPos' : 'infoMemberMagento');
+      let cardId, infoId;
+      if (type === 'POS') { cardId = 'cardMemberPos'; infoId = 'infoMemberPos'; }
+      else if (type === 'MAGENTO') { cardId = 'cardMemberMagento'; infoId = 'infoMemberMagento'; }
+      else { cardId = 'cardMemberToko'; infoId = 'infoMemberToko'; }
+
+      const card = document.getElementById(cardId);
+      const info = document.getElementById(infoId);
+      if (!card || !info) return;
+
       if (fileName) {
         card.classList.add('loaded');
         info.innerHTML = `✓ <strong>${fileName}</strong> (${rowCount} baris data)`;
@@ -2001,10 +2050,35 @@
         }
       }
 
-      // 2. Identify POS Member columns
+      // 2. Identify POS Member columns & Toko Lookup
+      const memberTokoLookupMap = new Map();
+      const memberTokoSource = rawMemberTokoData || rawTokoData;
+      if (memberTokoSource && memberTokoSource.aoa && memberTokoSource.aoa.length > 1) {
+        const tokoRows = memberTokoSource.aoa;
+        const tokoHeaders = [...tokoRows[0]];
+        const colKdCst = findColIndex(tokoHeaders, [/^kdcst$/i, /^kode\s*cst/i, /^kode\s*toko$/i]);
+        const colKdCst2 = findColIndex(tokoHeaders, [/^kdcst2$/i]);
+        const colNmCst = findColIndex(tokoHeaders, [/^nmcst$/i, /nm\s*cst/i, /^nama\s*toko$/i]);
+        if ((colKdCst !== -1 || colKdCst2 !== -1) && colNmCst !== -1) {
+          for (let i = 1; i < tokoRows.length; i++) {
+            const name = String(tokoRows[i][colNmCst] || '').trim();
+            if (!name) continue;
+            if (colKdCst !== -1) {
+              const code1 = String(tokoRows[i][colKdCst] || '').trim().toUpperCase();
+              if (code1 && !memberTokoLookupMap.has(code1)) memberTokoLookupMap.set(code1, name);
+            }
+            if (colKdCst2 !== -1) {
+              const code2 = String(tokoRows[i][colKdCst2] || '').trim().toUpperCase();
+              if (code2 && !memberTokoLookupMap.has(code2)) memberTokoLookupMap.set(code2, name);
+            }
+          }
+        }
+      }
+
       const posHeaders = [...posRows[0]];
       const colKdmbr = findColIndex(posHeaders, [/^kdmbr$/i, /kd\s*mbr/i]);
       const colNmmbr = findColIndex(posHeaders, [/^nmmbr$/i, /nm\s*mbr/i, /nama/i]);
+      const colCstmbr = findColIndex(posHeaders, [/^cstmbr$/i, /cst\s*mbr/i, /^kdcst$/i, /kode\s*toko/i]);
       // Ambil kolom poinrpmbr untuk perbandingan point (poinmbr tidak dipakai)
       const colPoinmbr = findColIndex(posHeaders, [/^poinrpmbr$/i, /^poin\s*rp\s*mbr$/i]);
       if (colPoinmbr === -1) {
@@ -2026,7 +2100,7 @@
         }
       }
 
-      // Prepare DATA MEMBER PUSAT Output
+      // Prepare DATA MEMBER PUSAT Output (Nama Toko di paling kanan)
       const posOutputHeaders = [
         ...posHeaders,
         'LAC No (Key)',
@@ -2036,11 +2110,12 @@
         'Hasil Point',
         'Validasi Ganda',
         'Keterangan',
-        'Cek Duplikat DataMember'
+        'Cek Duplikat DataMember',
+        'Nama Toko'
       ];
       const posOutputRows = [posOutputHeaders];
 
-      // Prepare HASIL ANALISIS Output
+      // Prepare HASIL ANALISIS Output (Nama Toko di paling kanan)
       const analisisHeaders = [
         'kdmbr',
         'nmmbr',
@@ -2052,7 +2127,8 @@
         'Hasil Point',
         'Validasi Ganda',
         'Keterangan',
-        'Cek Duplikat DataMember'
+        'Cek Duplikat DataMember',
+        'Nama Toko'
       ];
       const analisisRows = [analisisHeaders];
 
@@ -2151,6 +2227,13 @@
         const cekDuplikat = isDuplikat ? 'DUPLIKAT' : 'TIDAK DUPLIKAT';
         if (isDuplikat) statDuplikat++;
 
+        // 9. Lookup Nama Toko dari cstmbr
+        let namaToko = '-';
+        if (colCstmbr !== -1) {
+          const cstCode = String(row[colCstmbr] || '').trim().toUpperCase();
+          namaToko = memberTokoLookupMap.get(cstCode) || '-';
+        }
+
         // Push to DATA MEMBER PUSAT
         row.push(lacKey);
         row.push(namaMagento);
@@ -2160,6 +2243,7 @@
         row.push(validasiGanda);
         row.push(keterangan);
         row.push(cekDuplikat);
+        row.push(namaToko);
         posOutputRows.push(row);
 
         // Push to HASIL ANALISIS
@@ -2174,7 +2258,8 @@
           hasilPoint,
           validasiGanda,
           keterangan,
-          cekDuplikat
+          cekDuplikat,
+          namaToko
         ]);
       }
 
@@ -2192,7 +2277,7 @@
       for (let sIdx = 0; sIdx < summaryItemsMember.length; sIdx++) {
         const rowIdx = sIdx + 1;
         if (rowIdx < analisisRows.length) {
-          while (analisisRows[rowIdx].length < 11) analisisRows[rowIdx].push('');
+          while (analisisRows[rowIdx].length < analisisHeaders.length) analisisRows[rowIdx].push('');
           analisisRows[rowIdx].push(summaryItemsMember[sIdx][0]);
           analisisRows[rowIdx].push(summaryItemsMember[sIdx][1]);
         }
@@ -2218,7 +2303,7 @@
       // Pasang AutoFilter pada baris 1 header
       applyAutoFilterMember(wsMemberPusat, posOutputHeaders.length, posOutputRows.length);
       applyAutoFilterMember(wsMagentoPusat, magentoOutputHeaders.length, magentoOutputRows.length);
-      applyAutoFilterMember(wsAnalisis, 11, analisisRows.length);
+      applyAutoFilterMember(wsAnalisis, analisisHeaders.length, analisisRows.length);
 
       XLSX.utils.book_append_sheet(wb, wsMemberPusat, 'DATA MEMBER PUSAT');
       XLSX.utils.book_append_sheet(wb, wsMagentoPusat, 'MAGENTO DATA MEMBER PUSAT');
