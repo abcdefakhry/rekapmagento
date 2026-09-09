@@ -231,21 +231,30 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      transition: all 0.2s;
-      box-shadow: 0 4px 12px rgba(255, 241, 0, 0.35);
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 14px rgba(255, 241, 0, 0.4);
     }
-    .btn-process:hover:not(:disabled) {
-      background: #e5d800;
-      color: #0f172a;
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(229, 216, 0, 0.45);
+    .btn-process:hover {
+      background: #16a34a;
+      color: #ffffff;
+      border-color: #15803d;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(22, 163, 74, 0.4);
+    }
+    .btn-process:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
     }
     .btn-process:disabled {
-      background: var(--gray-300);
-      color: var(--gray-600);
-      cursor: not-allowed;
-      box-shadow: none;
-      opacity: 0.8;
+      background: #fff100;
+      color: #0f172a;
+      border: 1px solid #e5d800;
+      cursor: pointer;
+    }
+    .btn-process:disabled:hover {
+      background: #16a34a;
+      color: #ffffff;
+      border-color: #15803d;
     }
 
     /* Alert / Validation */
@@ -631,7 +640,7 @@
 
       <!-- Actions Section -->
       <div class="actions-section">
-        <button id="btnProcess" class="btn-process" disabled onclick="runReconciliation()">
+        <button id="btnProcess" class="btn-process" onclick="runReconciliation()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           Proses Rekonsiliasi
         </button>
@@ -770,7 +779,7 @@
 
       <!-- Actions Section Member -->
       <div class="actions-section">
-        <button id="btnProcessMember" class="btn-process" disabled onclick="runMemberReconciliation()">
+        <button id="btnProcessMember" class="btn-process" onclick="runMemberReconciliation()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           Proses Rekonsiliasi Member
         </button>
@@ -1057,11 +1066,15 @@
 
     function checkReadyToProcess() {
       const btn = document.getElementById('btnProcess');
-      btn.disabled = !(rawPosData && rawMagentoData);
+      // Button tetap aktif warna kuning dan interaktif
+      btn.disabled = false;
     }
 
     function runReconciliation() {
-      if (!rawPosData || !rawMagentoData) return;
+      if (!rawPosData || !rawMagentoData) {
+        showAlert('Silakan unggah File 1 (Data POS) dan File 2 (Data Magento) terlebih dahulu.');
+        return;
+      }
 
       const posRows = rawPosData.aoa;
       const magRows = rawMagentoData.aoa;
@@ -1464,7 +1477,8 @@
 
     function checkMemberReadyToProcess() {
       const btn = document.getElementById('btnProcessMember');
-      btn.disabled = !(rawMemberPosData && rawMemberMagentoData);
+      // Button tetap aktif warna kuning dan interaktif
+      btn.disabled = false;
     }
 
     // Helper: Normalize LAC number to 10-digit if purely numeric
@@ -1478,7 +1492,10 @@
     }
 
     function runMemberReconciliation() {
-      if (!rawMemberPosData || !rawMemberMagentoData) return;
+      if (!rawMemberPosData || !rawMemberMagentoData) {
+        showMemberAlert('Silakan unggah File 1 (Data Member POS) dan File 2 (Data Member Magento) terlebih dahulu.');
+        return;
+      }
 
       const posRows = rawMemberPosData.aoa;
       const magRows = rawMemberMagentoData.aoa;
