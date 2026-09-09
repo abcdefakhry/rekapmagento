@@ -313,6 +313,15 @@
       color: #334155;
       line-height: 1.45;
     }
+    .alert-msg-text code {
+      background: #fef08a;
+      color: #854d0e;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.9em;
+      border: 1px solid #fde047;
+    }
     .btn-swap-action {
       background: #fff100;
       color: #0f172a;
@@ -868,7 +877,7 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </div>
           <div class="upload-title">File 1: Data Member POS (DATA MEMBER PUSAT)</div>
-          <div class="upload-desc">File member dengan kolom <code>kdmbr</code>, <code>nmmbr</code>, <code>poinmbr</code></div>
+          <div class="upload-desc">File member dengan kolom <code>kdmbr</code>, <code>nmmbr</code>, <code>poinrpmbr</code></div>
           <div class="upload-hint">Klik atau Tarik File ke Sini (.xlsx / .xls)</div>
           <div class="upload-info" id="infoMemberPos">✓ File terpilih</div>
         </div>
@@ -1088,7 +1097,7 @@
       const alertBox = document.getElementById('alertBox');
       const alertMsg = document.getElementById('alertMsg');
       const btnSwap = document.getElementById('btnSwap');
-      alertMsg.textContent = message;
+      alertMsg.innerHTML = message;
       if (showSwap) {
         btnSwap.innerHTML = `
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
@@ -1116,14 +1125,14 @@
           const aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
           if (!aoa || aoa.length === 0) {
-            alert('File kosong atau tidak dapat dibaca!');
+            showAlert(`File "${file.name}" kosong atau tidak memiliki baris data.`);
             return;
           }
 
           const headers = aoa[0].map(h => String(h || '').trim());
           const detected = detectSpreadsheetType(headers);
 
-          // Cek salah masuk modul: Jika memasukkan file Member ke modul Transaksi
+          // 1. Cek salah masuk modul: Jika memasukkan file Member ke modul Transaksi
           if (detected === 'MBR_POS' || detected === 'MBR_MAGENTO') {
             const targetModul = 'Rekonsiliasi Data Member';
             const jenisFile = detected === 'MBR_POS' ? 'Data Member POS' : 'Data Member Magento';
@@ -1140,30 +1149,54 @@
             return;
           }
 
-          const isPos = detected === 'TX_POS' || headers.includes('cstps') || headers.includes('nops') || headers.includes('mbrps');
-          const isMagento = detected === 'TX_MAGENTO' || headers.some(h => /transaction\s*no/i.test(h)) || headers.some(h => /^point$/i.test(h));
+          // 2. Cek apakah tertukar kotak di dalam modul Transaksi
+          if (expectedType === 'POS' && detected === 'TX_MAGENTO') {
+            showAlert(`File "${file.name}" terdeteksi sebagai File Transaksi Magento. Apakah Anda ingin memindahkannya ke kotak Magento?`, true, 'Pindahkan ke Magento');
+            document.getElementById('btnSwap').onclick = () => {
+              setMagentoFile(file.name, aoa);
+              rawPosData = null;
+              updateCardUI('POS', null);
+              hideAlert();
+            };
+            return;
+          }
 
+          if (expectedType === 'MAGENTO' && detected === 'TX_POS') {
+            showAlert(`File "${file.name}" terdeteksi sebagai File Transaksi POS. Apakah Anda ingin memindahkannya ke kotak POS?`, true, 'Pindahkan ke POS');
+            document.getElementById('btnSwap').onclick = () => {
+              setPosFile(file.name, aoa);
+              rawMagentoData = null;
+              updateCardUI('MAGENTO', null);
+              hideAlert();
+            };
+            return;
+          }
+
+          // 3. Validasi ketat kolom wajib sesuai kotak yang dituju
           if (expectedType === 'POS') {
-            if (isMagento && !isPos) {
-              showAlert('File yang diunggah terdeteksi sebagai File Transaksi Magento. Apakah Anda ingin memindahkannya ke kotak Magento?', true, 'Pindahkan ke Magento');
-              document.getElementById('btnSwap').onclick = () => {
-                setMagentoFile(file.name, aoa);
-                rawPosData = null;
-                updateCardUI('POS', null);
-                hideAlert();
-              };
+            const missing = [];
+            if (findColIndex(headers, [/^nops$/i, /no\s*ps/i]) === -1) missing.push('nops');
+            if (findColIndex(headers, [/^mbrps$/i, /member/i]) === -1) missing.push('mbrps');
+            if (findColIndex(headers, [/^pointrpps$/i, /point\s*rp\s*ps/i]) === -1) missing.push('pointrpps');
+
+            if (missing.length > 0) {
+              rawPosData = null;
+              updateCardUI('POS', null);
+              document.getElementById('inputPos').value = '';
+              showAlert(`File "<strong>${file.name}</strong>" tidak valid untuk <strong>File 1: Data POS</strong>! Kolom wajib tidak ditemukan: ${missing.map(c => `<code>${c}</code>`).join(', ')}.`, false);
               return;
             }
             setPosFile(file.name, aoa);
           } else {
-            if (isPos && !isMagento) {
-              showAlert('File yang diunggah terdeteksi sebagai File Transaksi POS. Apakah Anda ingin memindahkannya ke kotak POS?', true, 'Pindahkan ke POS');
-              document.getElementById('btnSwap').onclick = () => {
-                setPosFile(file.name, aoa);
-                rawMagentoData = null;
-                updateCardUI('MAGENTO', null);
-                hideAlert();
-              };
+            const missing = [];
+            if (findColIndex(headers, [/transaction\s*no/i, /^tx\s*no$/i, /transaction/i]) === -1) missing.push('Transaction No.');
+            if (findColIndex(headers, [/^point$/i, /^poin$/i]) === -1) missing.push('Point');
+
+            if (missing.length > 0) {
+              rawMagentoData = null;
+              updateCardUI('MAGENTO', null);
+              document.getElementById('inputMagento').value = '';
+              showAlert(`File "<strong>${file.name}</strong>" tidak valid untuk <strong>File 2: Data Magento</strong>! Kolom wajib tidak ditemukan: ${missing.map(c => `<code>${c}</code>`).join(', ')}.`, false);
               return;
             }
             setMagentoFile(file.name, aoa);
@@ -1560,7 +1593,7 @@
       const alertBox = document.getElementById('alertBoxMember');
       const alertMsg = document.getElementById('alertMsgMember');
       const btnSwap = document.getElementById('btnSwapMember');
-      alertMsg.textContent = message;
+      alertMsg.innerHTML = message;
       if (showSwap) {
         btnSwap.innerHTML = `
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
@@ -1588,14 +1621,14 @@
           const aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
           if (!aoa || aoa.length === 0) {
-            alert('File kosong atau tidak dapat dibaca!');
+            showMemberAlert(`File "${file.name}" kosong atau tidak memiliki baris data.`);
             return;
           }
 
           const headers = aoa[0].map(h => String(h || '').trim());
           const detected = detectSpreadsheetType(headers);
 
-          // Cek salah masuk modul: Jika memasukkan file Transaksi ke modul Member
+          // 1. Cek salah masuk modul: Jika memasukkan file Transaksi ke modul Member
           if (detected === 'TX_POS' || detected === 'TX_MAGENTO') {
             const targetModul = 'Rekonsiliasi Data PSH & Magento (Transaksi)';
             const jenisFile = detected === 'TX_POS' ? 'Data Transaksi POS (PSH)' : 'Data Transaksi Magento';
@@ -1612,30 +1645,55 @@
             return;
           }
 
-          const isPos = detected === 'MBR_POS' || headers.includes('kdmbr') || headers.includes('nmmbr') || headers.includes('cstmbr');
-          const isMagento = detected === 'MBR_MAGENTO' || headers.some(h => /lac\s*no/i.test(h)) || headers.some(h => /last\s*point\s*up/i.test(h));
+          // 2. Cek apakah tertukar kotak di dalam modul Member
+          if (expectedType === 'POS' && detected === 'MBR_MAGENTO') {
+            showMemberAlert(`File "${file.name}" terdeteksi sebagai File Member Magento. Apakah Anda ingin memindahkannya ke kotak Magento?`, true, 'Pindahkan ke Magento');
+            document.getElementById('btnSwapMember').onclick = () => {
+              setMemberMagentoFile(file.name, aoa);
+              rawMemberPosData = null;
+              updateMemberCardUI('POS', null);
+              hideMemberAlert();
+            };
+            return;
+          }
 
+          if (expectedType === 'MAGENTO' && detected === 'MBR_POS') {
+            showMemberAlert(`File "${file.name}" terdeteksi sebagai File Member POS. Apakah Anda ingin memindahkannya ke kotak POS?`, true, 'Pindahkan ke POS');
+            document.getElementById('btnSwapMember').onclick = () => {
+              setMemberPosFile(file.name, aoa);
+              rawMemberMagentoData = null;
+              updateMemberCardUI('MAGENTO', null);
+              hideMemberAlert();
+            };
+            return;
+          }
+
+          // 3. Validasi ketat kolom wajib sesuai kotak yang dituju
           if (expectedType === 'POS') {
-            if (isMagento && !isPos) {
-              showMemberAlert('File yang diunggah terdeteksi sebagai File Member Magento. Apakah Anda ingin memindahkannya ke kotak Magento?', true, 'Pindahkan ke Magento');
-              document.getElementById('btnSwapMember').onclick = () => {
-                setMemberMagentoFile(file.name, aoa);
-                rawMemberPosData = null;
-                updateMemberCardUI('POS', null);
-                hideMemberAlert();
-              };
+            const missing = [];
+            if (findColIndex(headers, [/^kdmbr$/i, /kd\s*mbr/i]) === -1) missing.push('kdmbr');
+            if (findColIndex(headers, [/^nmmbr$/i, /nm\s*mbr/i, /nama/i]) === -1) missing.push('nmmbr');
+            if (findColIndex(headers, [/^poinrpmbr$/i, /^poin\s*rp\s*mbr$/i]) === -1) missing.push('poinrpmbr');
+
+            if (missing.length > 0) {
+              rawMemberPosData = null;
+              updateMemberCardUI('POS', null);
+              document.getElementById('inputMemberPos').value = '';
+              showMemberAlert(`File "<strong>${file.name}</strong>" tidak valid untuk <strong>File 1: Data Member POS</strong>! Kolom wajib tidak ditemukan: ${missing.map(c => `<code>${c}</code>`).join(', ')}.`, false);
               return;
             }
             setMemberPosFile(file.name, aoa);
           } else {
-            if (isPos && !isMagento) {
-              showMemberAlert('File yang diunggah terdeteksi sebagai File Member POS. Apakah Anda ingin memindahkannya ke kotak POS?', true, 'Pindahkan ke POS');
-              document.getElementById('btnSwapMember').onclick = () => {
-                setMemberPosFile(file.name, aoa);
-                rawMemberMagentoData = null;
-                updateMemberCardUI('MAGENTO', null);
-                hideMemberAlert();
-              };
+            const missing = [];
+            if (findColIndex(headers, [/^lac\s*no\.?$/i, /lac\s*no/i, /lac/i]) === -1) missing.push('Lac No.');
+            if (findColIndex(headers, [/^name$/i, /^nama$/i]) === -1) missing.push('Name');
+            if (findColIndex(headers, [/^point$/i, /^poin$/i]) === -1) missing.push('Point');
+
+            if (missing.length > 0) {
+              rawMemberMagentoData = null;
+              updateMemberCardUI('MAGENTO', null);
+              document.getElementById('inputMemberMagento').value = '';
+              showMemberAlert(`File "<strong>${file.name}</strong>" tidak valid untuk <strong>File 2: Data Member Magento</strong>! Kolom wajib tidak ditemukan: ${missing.map(c => `<code>${c}</code>`).join(', ')}.`, false);
               return;
             }
             setMemberMagentoFile(file.name, aoa);
@@ -1744,13 +1802,12 @@
       const posHeaders = [...posRows[0]];
       const colKdmbr = findColIndex(posHeaders, [/^kdmbr$/i, /kd\s*mbr/i]);
       const colNmmbr = findColIndex(posHeaders, [/^nmmbr$/i, /nm\s*mbr/i, /nama/i]);
-      // Search specifically for poinrpmbr (kolom S pada POS)
-      let colPoinmbr = findColIndex(posHeaders, [/^poinrpmbr$/i, /^poin\s*rp\s*mbr$/i]);
+      // Ambil kolom poinrpmbr untuk perbandingan point (poinmbr tidak dipakai)
+      const colPoinmbr = findColIndex(posHeaders, [/^poinrpmbr$/i, /^poin\s*rp\s*mbr$/i]);
       if (colPoinmbr === -1) {
-        // Fallback jika nama persis tidak ada
-        colPoinmbr = findColIndex(posHeaders, [/poin/i]);
+        alert('Kolom "poinrpmbr" tidak ditemukan pada file Member POS!');
+        return;
       }
-      if (colPoinmbr === -1) colPoinmbr = 0;
 
       if (colKdmbr === -1 || colNmmbr === -1) {
         alert('Kolom "kdmbr" atau "nmmbr" tidak ditemukan pada file Member POS!');
