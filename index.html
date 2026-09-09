@@ -160,6 +160,38 @@
       border-color: #86efac;
       background-color: #f0fdf4;
     }
+    .btn-remove-file {
+      display: none;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #dc2626;
+      padding: 5px 11px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(220, 38, 38, 0.15);
+    }
+    .upload-card.loaded .btn-remove-file {
+      display: inline-flex;
+    }
+    .btn-remove-file:hover {
+      background: #dc2626;
+      color: #ffffff;
+      border-color: #b91c1c;
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(220, 38, 38, 0.25);
+    }
+    .btn-remove-file:active {
+      transform: translateY(0);
+    }
 
     .upload-icon {
       width: 48px;
@@ -706,6 +738,10 @@
         
         <!-- Box 1: File POS -->
         <div class="upload-card" id="cardPos" onclick="document.getElementById('inputPos').click()">
+          <button type="button" class="btn-remove-file" title="Hapus file ini" onclick="removeFile(event, 'POS')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Hapus File
+          </button>
           <input type="file" id="inputPos" accept=".xlsx,.xls,.csv" onchange="handleFileSelected(event, 'POS')">
           <div class="upload-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
@@ -718,6 +754,10 @@
 
         <!-- Box 2: File Magento -->
         <div class="upload-card" id="cardMagento" onclick="document.getElementById('inputMagento').click()">
+          <button type="button" class="btn-remove-file" title="Hapus file ini" onclick="removeFile(event, 'MAGENTO')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Hapus File
+          </button>
           <input type="file" id="inputMagento" accept=".xlsx,.xls,.csv" onchange="handleFileSelected(event, 'MAGENTO')">
           <div class="upload-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
@@ -872,6 +912,10 @@
         
         <!-- Box 1: File Member POS -->
         <div class="upload-card" id="cardMemberPos" onclick="document.getElementById('inputMemberPos').click()">
+          <button type="button" class="btn-remove-file" title="Hapus file ini" onclick="removeMemberFile(event, 'POS')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Hapus File
+          </button>
           <input type="file" id="inputMemberPos" accept=".xlsx,.xls,.csv" onchange="handleMemberFileSelected(event, 'POS')">
           <div class="upload-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -884,6 +928,10 @@
 
         <!-- Box 2: File Member Magento -->
         <div class="upload-card" id="cardMemberMagento" onclick="document.getElementById('inputMemberMagento').click()">
+          <button type="button" class="btn-remove-file" title="Hapus file ini" onclick="removeMemberFile(event, 'MAGENTO')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Hapus File
+          </button>
           <input type="file" id="inputMemberMagento" accept=".xlsx,.xls,.csv" onchange="handleMemberFileSelected(event, 'MAGENTO')">
           <div class="upload-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -1220,6 +1268,23 @@
     function setMagentoFile(fileName, aoa) {
       rawMagentoData = { fileName, aoa };
       updateCardUI('MAGENTO', fileName, aoa.length - 1);
+    }
+
+    function removeFile(event, type) {
+      if (event) event.stopPropagation();
+      if (type === 'POS') {
+        rawPosData = null;
+        document.getElementById('inputPos').value = '';
+        updateCardUI('POS', null);
+      } else {
+        rawMagentoData = null;
+        document.getElementById('inputMagento').value = '';
+        updateCardUI('MAGENTO', null);
+      }
+      hideAlert();
+      checkReadyToProcess();
+      document.getElementById('resultsSection').style.display = 'none';
+      reconciledWorkbook = null;
     }
 
     function updateCardUI(type, fileName, rowCount) {
@@ -1717,6 +1782,23 @@
     function setMemberMagentoFile(fileName, aoa) {
       rawMemberMagentoData = { fileName, aoa };
       updateMemberCardUI('MAGENTO', fileName, aoa.length - 1);
+    }
+
+    function removeMemberFile(event, type) {
+      if (event) event.stopPropagation();
+      if (type === 'POS') {
+        rawMemberPosData = null;
+        document.getElementById('inputMemberPos').value = '';
+        updateMemberCardUI('POS', null);
+      } else {
+        rawMemberMagentoData = null;
+        document.getElementById('inputMemberMagento').value = '';
+        updateMemberCardUI('MAGENTO', null);
+      }
+      hideMemberAlert();
+      checkMemberReadyToProcess();
+      document.getElementById('resultsSectionMember').style.display = 'none';
+      reconciledMemberWorkbook = null;
     }
 
     function updateMemberCardUI(type, fileName, rowCount) {
