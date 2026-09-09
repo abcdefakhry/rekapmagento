@@ -882,6 +882,23 @@
       return -1;
     }
 
+    // Helper: Deteksi tipe konten file berdasarkan header kolom
+    function detectSpreadsheetType(headers) {
+      const lower = headers.map(h => String(h || '').trim().toLowerCase());
+      
+      const isMbrPos = lower.some(h => ['kdmbr', 'nmmbr', 'cstmbr', 'poinrpmbr', 'poinmbr'].includes(h));
+      const isMbrMag = lower.some(h => /lac\s*no/i.test(h)) || lower.some(h => /last\s*point\s*up/i.test(h));
+      
+      const isTxPos = lower.some(h => ['nops', 'cstps', 'mbrps', 'pointrpps', 'pointrp2ps'].includes(h));
+      const isTxMag = lower.some(h => /transaction\s*no/i.test(h)) || (lower.some(h => /^point$/i.test(h)) && !lower.some(h => /lac/i.test(h)));
+      
+      if (isMbrPos) return 'MBR_POS';
+      if (isMbrMag) return 'MBR_MAGENTO';
+      if (isTxPos) return 'TX_POS';
+      if (isTxMag) return 'TX_MAGENTO';
+      return 'UNKNOWN';
+    }
+
     // =========================================================================
     // MODULE 1: TRANSAKSI POS & MAGENTO
     // =========================================================================
@@ -915,12 +932,20 @@
       if (file) readFile(file, type);
     }
 
-    function showAlert(message, showSwap = false) {
+    function showAlert(message, showSwap = false, btnText = 'Tukar Posisi File') {
       const alertBox = document.getElementById('alertBox');
       const alertMsg = document.getElementById('alertMsg');
       const btnSwap = document.getElementById('btnSwap');
       alertMsg.textContent = message;
-      btnSwap.style.display = showSwap ? 'inline-flex' : 'none';
+      if (showSwap) {
+        btnSwap.innerHTML = `
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+          ${btnText}
+        `;
+        btnSwap.style.display = 'inline-flex';
+      } else {
+        btnSwap.style.display = 'none';
+      }
       alertBox.classList.add('show');
     }
 
@@ -944,12 +969,31 @@
           }
 
           const headers = aoa[0].map(h => String(h || '').trim());
-          const isPos = headers.includes('cstps') || headers.includes('nops') || headers.includes('mbrps');
-          const isMagento = headers.some(h => /transaction\s*no/i.test(h)) || headers.some(h => /^point$/i.test(h));
+          const detected = detectSpreadsheetType(headers);
+
+          // Cek salah masuk modul: Jika memasukkan file Member ke modul Transaksi
+          if (detected === 'MBR_POS' || detected === 'MBR_MAGENTO') {
+            const targetModul = 'Rekonsiliasi Data Member';
+            const jenisFile = detected === 'MBR_POS' ? 'Data Member POS' : 'Data Member Magento';
+            showAlert(`File "${file.name}" terdeteksi sebagai ${jenisFile}. File ini ditujukan untuk modul ${targetModul}. Ingin beralih ke modul Member?`, true, 'Buka Modul Member');
+            document.getElementById('btnSwap').onclick = () => {
+              switchModule('member');
+              if (detected === 'MBR_POS') {
+                setMemberPosFile(file.name, aoa);
+              } else {
+                setMemberMagentoFile(file.name, aoa);
+              }
+              hideAlert();
+            };
+            return;
+          }
+
+          const isPos = detected === 'TX_POS' || headers.includes('cstps') || headers.includes('nops') || headers.includes('mbrps');
+          const isMagento = detected === 'TX_MAGENTO' || headers.some(h => /transaction\s*no/i.test(h)) || headers.some(h => /^point$/i.test(h));
 
           if (expectedType === 'POS') {
             if (isMagento && !isPos) {
-              showAlert('File yang diunggah terdeteksi sebagai File Magento. Apakah Anda ingin memindahkannya ke posisi Magento?', true);
+              showAlert('File yang diunggah terdeteksi sebagai File Transaksi Magento. Apakah Anda ingin memindahkannya ke kotak Magento?', true, 'Pindahkan ke Magento');
               document.getElementById('btnSwap').onclick = () => {
                 setMagentoFile(file.name, aoa);
                 rawPosData = null;
@@ -961,7 +1005,7 @@
             setPosFile(file.name, aoa);
           } else {
             if (isPos && !isMagento) {
-              showAlert('File yang diunggah terdeteksi sebagai File POS. Apakah Anda ingin memindahkannya ke posisi POS?', true);
+              showAlert('File yang diunggah terdeteksi sebagai File Transaksi POS. Apakah Anda ingin memindahkannya ke kotak POS?', true, 'Pindahkan ke POS');
               document.getElementById('btnSwap').onclick = () => {
                 setPosFile(file.name, aoa);
                 rawMagentoData = null;
@@ -1295,12 +1339,20 @@
       if (file) readMemberFile(file, type);
     }
 
-    function showMemberAlert(message, showSwap = false) {
+    function showMemberAlert(message, showSwap = false, btnText = 'Tukar Posisi File') {
       const alertBox = document.getElementById('alertBoxMember');
       const alertMsg = document.getElementById('alertMsgMember');
       const btnSwap = document.getElementById('btnSwapMember');
       alertMsg.textContent = message;
-      btnSwap.style.display = showSwap ? 'inline-flex' : 'none';
+      if (showSwap) {
+        btnSwap.innerHTML = `
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+          ${btnText}
+        `;
+        btnSwap.style.display = 'inline-flex';
+      } else {
+        btnSwap.style.display = 'none';
+      }
       alertBox.classList.add('show');
     }
 
@@ -1324,12 +1376,31 @@
           }
 
           const headers = aoa[0].map(h => String(h || '').trim());
-          const isPos = headers.includes('kdmbr') || headers.includes('nmmbr') || headers.includes('cstmbr');
-          const isMagento = headers.some(h => /lac\s*no/i.test(h)) || headers.some(h => /last\s*point\s*up/i.test(h));
+          const detected = detectSpreadsheetType(headers);
+
+          // Cek salah masuk modul: Jika memasukkan file Transaksi ke modul Member
+          if (detected === 'TX_POS' || detected === 'TX_MAGENTO') {
+            const targetModul = 'Rekonsiliasi Data PSH & Magento (Transaksi)';
+            const jenisFile = detected === 'TX_POS' ? 'Data Transaksi POS (PSH)' : 'Data Transaksi Magento';
+            showMemberAlert(`File "${file.name}" terdeteksi sebagai ${jenisFile}. File ini ditujukan untuk modul ${targetModul}. Ingin beralih ke modul Transaksi?`, true, 'Buka Modul Transaksi');
+            document.getElementById('btnSwapMember').onclick = () => {
+              switchModule('transaksi');
+              if (detected === 'TX_POS') {
+                setPosFile(file.name, aoa);
+              } else {
+                setMagentoFile(file.name, aoa);
+              }
+              hideMemberAlert();
+            };
+            return;
+          }
+
+          const isPos = detected === 'MBR_POS' || headers.includes('kdmbr') || headers.includes('nmmbr') || headers.includes('cstmbr');
+          const isMagento = detected === 'MBR_MAGENTO' || headers.some(h => /lac\s*no/i.test(h)) || headers.some(h => /last\s*point\s*up/i.test(h));
 
           if (expectedType === 'POS') {
             if (isMagento && !isPos) {
-              showMemberAlert('File yang diunggah terdeteksi sebagai File Member Magento. Apakah Anda ingin memindahkannya ke posisi Magento?', true);
+              showMemberAlert('File yang diunggah terdeteksi sebagai File Member Magento. Apakah Anda ingin memindahkannya ke kotak Magento?', true, 'Pindahkan ke Magento');
               document.getElementById('btnSwapMember').onclick = () => {
                 setMemberMagentoFile(file.name, aoa);
                 rawMemberPosData = null;
@@ -1341,7 +1412,7 @@
             setMemberPosFile(file.name, aoa);
           } else {
             if (isPos && !isMagento) {
-              showMemberAlert('File yang diunggah terdeteksi sebagai File Member POS. Apakah Anda ingin memindahkannya ke posisi POS?', true);
+              showMemberAlert('File yang diunggah terdeteksi sebagai File Member POS. Apakah Anda ingin memindahkannya ke kotak POS?', true, 'Pindahkan ke POS');
               document.getElementById('btnSwapMember').onclick = () => {
                 setMemberPosFile(file.name, aoa);
                 rawMemberMagentoData = null;
