@@ -470,11 +470,94 @@
 
     /* Table Preview */
     .table-wrapper {
-      max-height: 380px;
+      max-height: 440px;
       overflow: auto;
       border: 1px solid var(--gray-200);
       border-radius: 8px;
       font-size: 12px;
+    }
+
+    /* Pagination */
+    .pagination-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--gray-200);
+      font-size: 13px;
+      color: var(--gray-600);
+    }
+    .pagination-info {
+      font-weight: 500;
+      color: var(--gray-700);
+    }
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .pagination-size-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--gray-600);
+    }
+    .pagination-select {
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--gray-300);
+      font-size: 13px;
+      background: white;
+      color: var(--gray-800);
+      cursor: pointer;
+      outline: none;
+      font-weight: 600;
+      transition: border-color 0.2s;
+    }
+    .pagination-select:focus {
+      border-color: #0f172a;
+    }
+    .pagination-nav-btns {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-page {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--gray-300);
+      background: white;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-700);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      min-width: 32px;
+    }
+    .btn-page:hover:not(:disabled) {
+      background: #fff100;
+      border-color: #e5d800;
+      color: #0f172a;
+      transform: translateY(-1px);
+    }
+    .btn-page:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: var(--gray-100);
+    }
+    .page-indicator {
+      font-weight: 600;
+      color: var(--gray-800);
+      padding: 0 4px;
+      font-size: 12.5px;
+      white-space: nowrap;
     }
     table {
       width: 100%;
@@ -700,6 +783,33 @@
           </table>
         </div>
 
+        <!-- Pagination Controls Transaksi -->
+        <div class="pagination-container" id="paginationTx">
+          <div class="pagination-info" id="paginationInfoTx">
+            Menampilkan 0 baris data
+          </div>
+          <div class="pagination-controls">
+            <div class="pagination-size-wrapper">
+              <label for="selectPageSizeTx">Tampilkan:</label>
+              <select id="selectPageSizeTx" class="pagination-select" onchange="changeTxPageSize(this.value)">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+              </select>
+              <span>baris</span>
+            </div>
+            <div class="pagination-nav-btns">
+              <button id="btnTxFirst" class="btn-page" onclick="goToTxPage(1)" title="Halaman Pertama">⏮</button>
+              <button id="btnTxPrev" class="btn-page" onclick="changeTxPage(-1)" title="Halaman Sebelumnya">◀</button>
+              <span id="pageIndicatorTx" class="page-indicator">Halaman 1 / 1</span>
+              <button id="btnTxNext" class="btn-page" onclick="changeTxPage(1)" title="Halaman Selanjutnya">▶</button>
+              <button id="btnTxLast" class="btn-page" onclick="goToTxLastPage()" title="Halaman Terakhir">⏭</button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- Guide / Notes -->
@@ -840,6 +950,33 @@
             <thead><tr id="previewTheadMember"></tr></thead>
             <tbody id="previewTbodyMember"></tbody>
           </table>
+        </div>
+
+        <!-- Pagination Controls Member -->
+        <div class="pagination-container" id="paginationMember">
+          <div class="pagination-info" id="paginationInfoMember">
+            Menampilkan 0 baris data
+          </div>
+          <div class="pagination-controls">
+            <div class="pagination-size-wrapper">
+              <label for="selectPageSizeMember">Tampilkan:</label>
+              <select id="selectPageSizeMember" class="pagination-select" onchange="changeMemberPageSize(this.value)">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+              </select>
+              <span>baris</span>
+            </div>
+            <div class="pagination-nav-btns">
+              <button id="btnMemberFirst" class="btn-page" onclick="goToMemberPage(1)" title="Halaman Pertama">⏮</button>
+              <button id="btnMemberPrev" class="btn-page" onclick="changeMemberPage(-1)" title="Halaman Sebelumnya">◀</button>
+              <span id="pageIndicatorMember" class="page-indicator">Halaman 1 / 1</span>
+              <button id="btnMemberNext" class="btn-page" onclick="changeMemberPage(1)" title="Halaman Selanjutnya">▶</button>
+              <button id="btnMemberLast" class="btn-page" onclick="goToMemberLastPage()" title="Halaman Terakhir">⏭</button>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -1273,18 +1410,60 @@
       document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
     }
 
+    let currentTxTab = 'member';
+    let currentTxPage = 1;
+    let currentTxPageSize = 50;
+
     function switchTab(tabKey) {
+      currentTxTab = tabKey;
+      currentTxPage = 1;
       document.querySelectorAll('#moduleTransaksi .preview-tab').forEach(b => b.classList.remove('active'));
       const activeBtn = Array.from(document.querySelectorAll('#moduleTransaksi .preview-tab')).find(b => b.getAttribute('onclick').includes(tabKey));
       if (activeBtn) activeBtn.classList.add('active');
+      renderTxTable();
+    }
 
-      const data = previewDataStore[tabKey];
-      if (!data || data.length === 0) return;
+    function changeTxPageSize(val) {
+      currentTxPageSize = parseInt(val, 10) || 50;
+      currentTxPage = 1;
+      renderTxTable();
+    }
 
+    function changeTxPage(delta) {
+      currentTxPage += delta;
+      renderTxTable();
+    }
+
+    function goToTxPage(page) {
+      currentTxPage = page;
+      renderTxTable();
+    }
+
+    function goToTxLastPage() {
+      const data = previewDataStore[currentTxTab];
+      if (!data || data.length <= 1) return;
+      const totalRows = data.length - 1;
+      const totalPages = Math.ceil(totalRows / currentTxPageSize);
+      currentTxPage = totalPages;
+      renderTxTable();
+    }
+
+    function renderTxTable() {
+      const data = previewDataStore[currentTxTab];
       const thead = document.getElementById('previewThead');
       const tbody = document.getElementById('previewTbody');
       thead.innerHTML = '';
       tbody.innerHTML = '';
+
+      if (!data || data.length === 0) {
+        document.getElementById('paginationInfoTx').textContent = 'Tidak ada data';
+        document.getElementById('pageIndicatorTx').textContent = 'Halaman 0 / 0';
+        document.getElementById('btnTxFirst').disabled = true;
+        document.getElementById('btnTxPrev').disabled = true;
+        document.getElementById('btnTxNext').disabled = true;
+        document.getElementById('btnTxLast').disabled = true;
+        return;
+      }
 
       const headers = data[0].slice(0, 32);
       headers.forEach(h => {
@@ -1293,7 +1472,26 @@
         thead.appendChild(th);
       });
 
-      const previewRows = data.slice(1, 21);
+      const totalRows = data.length - 1;
+      const totalPages = Math.max(1, Math.ceil(totalRows / currentTxPageSize));
+      if (currentTxPage > totalPages) currentTxPage = totalPages;
+      if (currentTxPage < 1) currentTxPage = 1;
+
+      const startIdx = (currentTxPage - 1) * currentTxPageSize + 1;
+      const endIdx = Math.min(startIdx + currentTxPageSize, data.length);
+      const startDisplay = totalRows > 0 ? startIdx : 0;
+      const endDisplay = totalRows > 0 ? endIdx - 1 : 0;
+
+      document.getElementById('paginationInfoTx').innerHTML = 
+        `Menampilkan <strong>${startDisplay.toLocaleString()} - ${endDisplay.toLocaleString()}</strong> dari <strong>${totalRows.toLocaleString()}</strong> baris data`;
+      document.getElementById('pageIndicatorTx').textContent = `Halaman ${currentTxPage.toLocaleString()} / ${totalPages.toLocaleString()}`;
+
+      document.getElementById('btnTxFirst').disabled = currentTxPage <= 1;
+      document.getElementById('btnTxPrev').disabled = currentTxPage <= 1;
+      document.getElementById('btnTxNext').disabled = currentTxPage >= totalPages;
+      document.getElementById('btnTxLast').disabled = currentTxPage >= totalPages;
+
+      const previewRows = data.slice(startIdx, endIdx);
       previewRows.forEach(row => {
         const tr = document.createElement('tr');
         for (let c = 0; c < headers.length; c++) {
@@ -1791,18 +1989,60 @@
       document.getElementById('resultsSectionMember').scrollIntoView({ behavior: 'smooth' });
     }
 
+    let currentMemberTab = 'analisis';
+    let currentMemberPage = 1;
+    let currentMemberPageSize = 50;
+
     function switchMemberTab(tabKey) {
+      currentMemberTab = tabKey;
+      currentMemberPage = 1;
       document.querySelectorAll('#moduleMember .preview-tab').forEach(b => b.classList.remove('active'));
       const activeBtn = Array.from(document.querySelectorAll('#moduleMember .preview-tab')).find(b => b.getAttribute('onclick').includes(tabKey));
       if (activeBtn) activeBtn.classList.add('active');
+      renderMemberTable();
+    }
 
-      const data = previewMemberDataStore[tabKey];
-      if (!data || data.length === 0) return;
+    function changeMemberPageSize(val) {
+      currentMemberPageSize = parseInt(val, 10) || 50;
+      currentMemberPage = 1;
+      renderMemberTable();
+    }
 
+    function changeMemberPage(delta) {
+      currentMemberPage += delta;
+      renderMemberTable();
+    }
+
+    function goToMemberPage(page) {
+      currentMemberPage = page;
+      renderMemberTable();
+    }
+
+    function goToMemberLastPage() {
+      const data = previewMemberDataStore[currentMemberTab];
+      if (!data || data.length <= 1) return;
+      const totalRows = data.length - 1;
+      const totalPages = Math.ceil(totalRows / currentMemberPageSize);
+      currentMemberPage = totalPages;
+      renderMemberTable();
+    }
+
+    function renderMemberTable() {
+      const data = previewMemberDataStore[currentMemberTab];
       const thead = document.getElementById('previewTheadMember');
       const tbody = document.getElementById('previewTbodyMember');
       thead.innerHTML = '';
       tbody.innerHTML = '';
+
+      if (!data || data.length === 0) {
+        document.getElementById('paginationInfoMember').textContent = 'Tidak ada data';
+        document.getElementById('pageIndicatorMember').textContent = 'Halaman 0 / 0';
+        document.getElementById('btnMemberFirst').disabled = true;
+        document.getElementById('btnMemberPrev').disabled = true;
+        document.getElementById('btnMemberNext').disabled = true;
+        document.getElementById('btnMemberLast').disabled = true;
+        return;
+      }
 
       const headers = data[0].slice(0, 32);
       headers.forEach(h => {
@@ -1811,7 +2051,26 @@
         thead.appendChild(th);
       });
 
-      const previewRows = data.slice(1, 21);
+      const totalRows = data.length - 1;
+      const totalPages = Math.max(1, Math.ceil(totalRows / currentMemberPageSize));
+      if (currentMemberPage > totalPages) currentMemberPage = totalPages;
+      if (currentMemberPage < 1) currentMemberPage = 1;
+
+      const startIdx = (currentMemberPage - 1) * currentMemberPageSize + 1;
+      const endIdx = Math.min(startIdx + currentMemberPageSize, data.length);
+      const startDisplay = totalRows > 0 ? startIdx : 0;
+      const endDisplay = totalRows > 0 ? endIdx - 1 : 0;
+
+      document.getElementById('paginationInfoMember').innerHTML = 
+        `Menampilkan <strong>${startDisplay.toLocaleString()} - ${endDisplay.toLocaleString()}</strong> dari <strong>${totalRows.toLocaleString()}</strong> baris data`;
+      document.getElementById('pageIndicatorMember').textContent = `Halaman ${currentMemberPage.toLocaleString()} / ${totalPages.toLocaleString()}`;
+
+      document.getElementById('btnMemberFirst').disabled = currentMemberPage <= 1;
+      document.getElementById('btnMemberPrev').disabled = currentMemberPage <= 1;
+      document.getElementById('btnMemberNext').disabled = currentMemberPage >= totalPages;
+      document.getElementById('btnMemberLast').disabled = currentMemberPage >= totalPages;
+
+      const previewRows = data.slice(startIdx, endIdx);
       previewRows.forEach(row => {
         const tr = document.createElement('tr');
         for (let c = 0; c < headers.length; c++) {
