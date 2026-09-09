@@ -1550,6 +1550,11 @@
       const data = previewDataStore[currentTxTab];
       const thead = document.getElementById('previewThead');
       const tbody = document.getElementById('previewTbody');
+      const tableContainer = document.getElementById('previewTableContainer');
+      if (tableContainer) {
+        tableContainer.scrollTop = 0;
+        tableContainer.scrollLeft = 0;
+      }
       thead.innerHTML = '';
       tbody.innerHTML = '';
 
@@ -1609,6 +1614,14 @@
         }
         tbody.appendChild(tr);
       });
+
+      if (tableContainer) {
+        tableContainer.scrollTop = 0;
+        const rect = tableContainer.getBoundingClientRect();
+        if (rect.top < 70) {
+          tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     }
 
     function downloadResultExcel() {
@@ -2170,6 +2183,11 @@
       const data = previewMemberDataStore[currentMemberTab];
       const thead = document.getElementById('previewTheadMember');
       const tbody = document.getElementById('previewTbodyMember');
+      const tableContainer = document.getElementById('previewTableContainerMember');
+      if (tableContainer) {
+        tableContainer.scrollTop = 0;
+        tableContainer.scrollLeft = 0;
+      }
       thead.innerHTML = '';
       tbody.innerHTML = '';
 
@@ -2231,6 +2249,14 @@
         }
         tbody.appendChild(tr);
       });
+
+      if (tableContainer) {
+        tableContainer.scrollTop = 0;
+        const rect = tableContainer.getBoundingClientRect();
+        if (rect.top < 70) {
+          tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     }
 
     function downloadMemberResultExcel() {
