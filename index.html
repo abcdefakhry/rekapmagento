@@ -13,8 +13,9 @@
   </script>
   <style>
     :root {
-      --primary: #f59e0b;
-      --primary-hover: #d97706;
+      --primary: #fff100;
+      --primary-hover: #e5d800;
+      --primary-dark: #1e293b;
       --success: #16a34a;
       --success-bg: #dcfce7;
       --warning: #d97706;
@@ -85,10 +86,10 @@
       background: rgba(255, 255, 255, 0.5);
     }
     .nav-btn.active {
-      background: white;
-      color: #b45309;
+      background: #fff100;
+      color: #0f172a;
       font-weight: 700;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
     }
 
     /* App Logo */
@@ -151,7 +152,7 @@
       position: relative;
     }
     .upload-card:hover, .upload-card.drag-over {
-      border-color: var(--primary);
+      border-color: #fff100;
       background-color: #fffdf5;
     }
     .upload-card.loaded {
@@ -219,26 +220,25 @@
       gap: 12px;
     }
     .btn-process {
-      background: #f59e0b;
-      color: #78350f;
-      border: 1px solid #fbbf24;
-      border: none;
+      background: #fff100;
+      color: #0f172a;
+      border: 1px solid #e5d800;
       padding: 14px 36px;
       font-size: 16px;
-      font-weight: 600;
+      font-weight: 700;
       border-radius: 10px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 8px;
       transition: all 0.2s;
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.28);
+      box-shadow: 0 4px 12px rgba(255, 241, 0, 0.35);
     }
     .btn-process:hover:not(:disabled) {
-      background: #d97706;
-      color: #ffffff;
+      background: #e5d800;
+      color: #0f172a;
       transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(217, 119, 6, 0.35);
+      box-shadow: 0 6px 16px rgba(229, 216, 0, 0.45);
     }
     .btn-process:disabled {
       background: var(--gray-300);
@@ -390,8 +390,10 @@
       white-space: nowrap;
     }
     .preview-tab.active {
-      color: var(--primary);
-      border-bottom-color: var(--primary);
+      color: #0f172a;
+      font-weight: 700;
+      border-bottom-color: #fff100;
+      border-bottom-width: 3px;
     }
 
     /* Table Preview */
