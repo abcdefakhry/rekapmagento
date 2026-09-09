@@ -1,6 +1,6 @@
 # Rekonsiliasi Data PSH & Member - Magento Lois
 
-Aplikasi web client-side (murni offline tanpa server) untuk mengotomasi proses rekonsiliasi data transaksi PSH dan profil member antara sistem POS (Kasir) dan sistem Magento Lois.
+Aplikasi web client-side untuk mengotomasi proses rekonsiliasi data transaksi PSH dan profil member antara sistem POS (Kasir) dan sistem Magento Lois.
 
 ## Fitur Utama
 
