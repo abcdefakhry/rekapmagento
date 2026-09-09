@@ -130,7 +130,7 @@
     /* Upload Grid */
     .upload-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 20px;
       margin-bottom: 24px;
     }
@@ -768,6 +768,22 @@
           <div class="upload-info" id="infoMagento">✓ File terpilih</div>
         </div>
 
+        <!-- Box 3: File Master Toko -->
+        <div class="upload-card" id="cardToko" onclick="document.getElementById('inputToko').click()">
+          <button type="button" class="btn-remove-file" title="Hapus file ini" onclick="removeFile(event, 'TOKO')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Hapus File
+          </button>
+          <input type="file" id="inputToko" accept=".xlsx,.xls,.csv" onchange="handleFileSelected(event, 'TOKO')">
+          <div class="upload-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          </div>
+          <div class="upload-title">File 3: Master Data Toko</div>
+          <div class="upload-desc">File toko dengan kolom <code>kdcst</code>, <code>nmcst</code></div>
+          <div class="upload-hint">Klik atau Tarik File ke Sini (.xlsx / .xls)</div>
+          <div class="upload-info" id="infoToko">✓ File terpilih</div>
+        </div>
+
       </div>
 
       <!-- Actions Section -->
@@ -875,6 +891,7 @@
           <li><strong>Status & Keterangan:</strong> 
             Status menghasilkan <code>"SAMA"</code> (Keterangan: <em>Point cocok</em>), <code>"TRANSAKSI TIDAK DITEMUKAN"</code> (Keterangan: <em>Tidak ada pada Magento</em>), atau <code>"TIDAK SAMA"</code> (Keterangan: <em>Nilai berbeda</em>).
           </li>
+          <li><strong>Nama Toko (Otomatis):</strong> Dicocokkan dari <code>cstps == kdcst</code> pada File 3 Master Toko dan diletakkan di paling kanan pada sheet <code>DATA MEMBER</code> dan <code>DATA NON MEMBER</code>.</li>
           <li><strong>Summary Box:</strong> Otomatis ditambahkan di samping tabel sheet <code>DATA MEMBER</code>.</li>
         </ul>
       </div>
@@ -1089,19 +1106,23 @@
     function detectSpreadsheetType(headers) {
       const lower = headers.map(h => String(h || '').trim().toLowerCase());
       
-      // 1. File Transaksi Magento: CIRI KHAS UTAMA memiliki kolom "Transaction No." / "Transaction Type"
+      // 1. File Master Toko: memiliki kdcst / kdcst2 dan nmcst
+      const isMasterToko = lower.some(h => ['kdcst', 'kdcst2'].includes(h)) && lower.some(h => ['nmcst', 'nama toko'].includes(h));
+      if (isMasterToko) return 'MASTER_TOKO';
+
+      // 2. File Transaksi Magento: CIRI KHAS UTAMA memiliki kolom "Transaction No." / "Transaction Type"
       const isTxMag = lower.some(h => /transaction/i.test(h));
       if (isTxMag) return 'TX_MAGENTO';
 
-      // 2. File Member Magento: memiliki kolom nama ('Name'/'Nama') & 'Lac No.' atau 'Last Point Updated' (dan TIDAK ada kolom transaksi)
+      // 3. File Member Magento: memiliki kolom nama ('Name'/'Nama') & 'Lac No.' atau 'Last Point Updated' (dan TIDAK ada kolom transaksi)
       const isMbrMag = (lower.some(h => ['name', 'nama'].includes(h)) && lower.some(h => /lac/i.test(h))) || lower.some(h => /last\s*point/i.test(h));
       if (isMbrMag) return 'MBR_MAGENTO';
 
-      // 3. File Member POS: memiliki kolom data member 'kdmbr', 'nmmbr', atau 'poinrpmbr'
+      // 4. File Member POS: memiliki kolom data member 'kdmbr', 'nmmbr', atau 'poinrpmbr'
       const isMbrPos = lower.some(h => ['kdmbr', 'nmmbr', 'poinrpmbr', 'poinmbr'].includes(h));
       if (isMbrPos) return 'MBR_POS';
 
-      // 4. File Transaksi POS (PSH): memiliki kolom transaksi 'mbrps', 'pointrpps', 'pointrp2ps', 'totps', atau 'ksrps'
+      // 5. File Transaksi POS (PSH): memiliki kolom transaksi 'mbrps', 'pointrpps', 'pointrp2ps', 'totps', atau 'ksrps'
       const isTxPos = lower.some(h => ['mbrps', 'pointrpps', 'pointrp2ps', 'totps', 'ksrps', 'cstps', 'kdps'].includes(h));
       if (isTxPos) return 'TX_POS';
 
@@ -1113,11 +1134,13 @@
     // =========================================================================
     let rawPosData = null;
     let rawMagentoData = null;
+    let rawTokoData = null;
     let reconciledWorkbook = null;
     let previewDataStore = {};
 
-    ['cardPos', 'cardMagento'].forEach(id => {
+    ['cardPos', 'cardMagento', 'cardToko'].forEach(id => {
       const card = document.getElementById(id);
+      if (!card) return;
       card.addEventListener('dragover', (e) => {
         e.preventDefault();
         card.classList.add('drag-over');
@@ -1130,7 +1153,7 @@
         card.classList.remove('drag-over');
         const files = e.dataTransfer.files;
         if (files.length > 0) {
-          const type = id === 'cardPos' ? 'POS' : 'MAGENTO';
+          const type = id === 'cardPos' ? 'POS' : (id === 'cardMagento' ? 'MAGENTO' : 'TOKO');
           readFile(files[0], type);
         }
       });
@@ -1198,6 +1221,17 @@
           }
 
           // 2. Cek apakah tertukar kotak di dalam modul Transaksi
+          if (expectedType !== 'TOKO' && detected === 'MASTER_TOKO') {
+            showAlert(`File "${file.name}" terdeteksi sebagai File Master Data Toko. Apakah Anda ingin memindahkannya ke kotak File 3 (Master Toko)?`, true, 'Pindahkan ke Master Toko');
+            document.getElementById('btnSwap').onclick = () => {
+              setTokoFile(file.name, aoa);
+              if (expectedType === 'POS') { rawPosData = null; updateCardUI('POS', null); }
+              else { rawMagentoData = null; updateCardUI('MAGENTO', null); }
+              hideAlert();
+            };
+            return;
+          }
+
           if (expectedType === 'POS' && detected === 'TX_MAGENTO') {
             showAlert(`File "${file.name}" terdeteksi sebagai File Transaksi Magento. Apakah Anda ingin memindahkannya ke kotak Magento?`, true, 'Pindahkan ke Magento');
             document.getElementById('btnSwap').onclick = () => {
@@ -1235,7 +1269,7 @@
               return;
             }
             setPosFile(file.name, aoa);
-          } else {
+          } else if (expectedType === 'MAGENTO') {
             const missing = [];
             if (findColIndex(headers, [/transaction\s*no/i, /^tx\s*no$/i, /transaction/i]) === -1) missing.push('Transaction No.');
             if (findColIndex(headers, [/^point$/i, /^poin$/i]) === -1) missing.push('Point');
@@ -1248,6 +1282,19 @@
               return;
             }
             setMagentoFile(file.name, aoa);
+          } else if (expectedType === 'TOKO') {
+            const missing = [];
+            if (findColIndex(headers, [/^kdcst$/i, /^kdcst2$/i, /kd\s*cst/i]) === -1) missing.push('kdcst');
+            if (findColIndex(headers, [/^nmcst$/i, /nm\s*cst/i, /^nama\s*toko$/i]) === -1) missing.push('nmcst');
+
+            if (missing.length > 0) {
+              rawTokoData = null;
+              updateCardUI('TOKO', null);
+              document.getElementById('inputToko').value = '';
+              showAlert(`File "<strong>${file.name}</strong>" tidak valid untuk <strong>File 3: Master Data Toko</strong>! Kolom wajib tidak ditemukan: ${missing.map(c => `<code>${c}</code>`).join(', ')}.`, false);
+              return;
+            }
+            setTokoFile(file.name, aoa);
           }
 
           hideAlert();
@@ -1270,16 +1317,25 @@
       updateCardUI('MAGENTO', fileName, aoa.length - 1);
     }
 
+    function setTokoFile(fileName, aoa) {
+      rawTokoData = { fileName, aoa };
+      updateCardUI('TOKO', fileName, aoa.length - 1);
+    }
+
     function removeFile(event, type) {
       if (event) event.stopPropagation();
       if (type === 'POS') {
         rawPosData = null;
         document.getElementById('inputPos').value = '';
         updateCardUI('POS', null);
-      } else {
+      } else if (type === 'MAGENTO') {
         rawMagentoData = null;
         document.getElementById('inputMagento').value = '';
         updateCardUI('MAGENTO', null);
+      } else if (type === 'TOKO') {
+        rawTokoData = null;
+        document.getElementById('inputToko').value = '';
+        updateCardUI('TOKO', null);
       }
       hideAlert();
       checkReadyToProcess();
@@ -1288,8 +1344,15 @@
     }
 
     function updateCardUI(type, fileName, rowCount) {
-      const card = document.getElementById(type === 'POS' ? 'cardPos' : 'cardMagento');
-      const info = document.getElementById(type === 'POS' ? 'infoPos' : 'infoMagento');
+      let cardId, infoId;
+      if (type === 'POS') { cardId = 'cardPos'; infoId = 'infoPos'; }
+      else if (type === 'MAGENTO') { cardId = 'cardMagento'; infoId = 'infoMagento'; }
+      else { cardId = 'cardToko'; infoId = 'infoToko'; }
+
+      const card = document.getElementById(cardId);
+      const info = document.getElementById(infoId);
+      if (!card || !info) return;
+
       if (fileName) {
         card.classList.add('loaded');
         info.innerHTML = `✓ <strong>${fileName}</strong> (${rowCount} baris data)`;
@@ -1372,9 +1435,36 @@
         }
       }
 
-      const memberOutputHeaders = [...posHeaders, 'Point Magento', 'Status', 'Keterangan'];
+      // Build Toko Lookup Map dari File 3 jika ada
+      const tokoLookupMap = new Map();
+      if (rawTokoData && rawTokoData.aoa && rawTokoData.aoa.length > 1) {
+        const tokoRows = rawTokoData.aoa;
+        const tokoHeaders = [...tokoRows[0]];
+        const colKdCst = findColIndex(tokoHeaders, [/^kdcst$/i, /^kode\s*cst/i, /^kode\s*toko$/i]);
+        const colKdCst2 = findColIndex(tokoHeaders, [/^kdcst2$/i]);
+        const colNmCst = findColIndex(tokoHeaders, [/^nmcst$/i, /nm\s*cst/i, /^nama\s*toko$/i]);
+        if ((colKdCst !== -1 || colKdCst2 !== -1) && colNmCst !== -1) {
+          for (let i = 1; i < tokoRows.length; i++) {
+            const name = String(tokoRows[i][colNmCst] || '').trim();
+            if (!name) continue;
+            if (colKdCst !== -1) {
+              const code1 = String(tokoRows[i][colKdCst] || '').trim().toUpperCase();
+              if (code1 && !tokoLookupMap.has(code1)) tokoLookupMap.set(code1, name);
+            }
+            if (colKdCst2 !== -1) {
+              const code2 = String(tokoRows[i][colKdCst2] || '').trim().toUpperCase();
+              if (code2 && !tokoLookupMap.has(code2)) tokoLookupMap.set(code2, name);
+            }
+          }
+        }
+      }
+
+      const colCstps = findColIndex(posHeaders, [/^cstps$/i, /cst\s*ps/i, /kode\s*toko/i]);
+
+      const memberOutputHeaders = [...posHeaders, 'Point Magento', 'Status', 'Keterangan', 'Nama Toko'];
       const memberRows = [memberOutputHeaders];
-      const nonMemberRows = [[...posHeaders]];
+      const nonMemberOutputHeaders = [...posHeaders, 'Nama Toko'];
+      const nonMemberRows = [nonMemberOutputHeaders];
 
       let countSama = 0;
       let countTidakSama = 0;
@@ -1384,10 +1474,17 @@
         const row = [...posRows[i]];
         while (row.length < posHeaders.length) row.push('');
 
+        let namaToko = '-';
+        if (colCstps !== -1) {
+          const cstCode = String(row[colCstps] || '').trim().toUpperCase();
+          namaToko = tokoLookupMap.get(cstCode) || '-';
+        }
+
         const mbrpsVal = String(row[colMbrps] || '').trim();
 
         if (mbrpsVal === '9999999999') {
-          nonMemberRows.push(row);
+          const nonMbrRow = [...row, namaToko];
+          nonMemberRows.push(nonMbrRow);
           continue;
         }
 
@@ -1427,6 +1524,7 @@
         row.push(pointMagento);
         row.push(status);
         row.push(keterangan);
+        row.push(namaToko);
         memberRows.push(row);
       }
 
@@ -1475,7 +1573,7 @@
 
       // Pasang AutoFilter pada header baris 1
       applyAutoFilter(wsMember, memberOutputHeaders.length, memberRows.length);
-      applyAutoFilter(wsNonMember, posHeaders.length, nonMemberRows.length);
+      applyAutoFilter(wsNonMember, nonMemberOutputHeaders.length, nonMemberRows.length);
       applyAutoFilter(wsMagento, magantoOutputHeaders.length, magentoOutputRows.length);
       applyAutoFilter(wsRekap, rekapBersihHeaders.length, rekapBersihRows.length);
 
@@ -1568,7 +1666,7 @@
         return;
       }
 
-      const headers = data[0].slice(0, 32);
+      const headers = data[0];
       headers.forEach(h => {
         const th = document.createElement('th');
         th.textContent = h || '-';
@@ -1706,7 +1804,17 @@
           const headers = aoa[0].map(h => String(h || '').trim());
           const detected = detectSpreadsheetType(headers);
 
-          // 1. Cek salah masuk modul: Jika memasukkan file Transaksi ke modul Member
+          // 1. Cek salah masuk modul: Jika memasukkan file Transaksi / Toko ke modul Member
+          if (detected === 'MASTER_TOKO') {
+            showMemberAlert(`File "${file.name}" terdeteksi sebagai File Master Data Toko. File ini ditujukan untuk modul Rekonsiliasi Transaksi. Ingin beralih ke modul Transaksi?`, true, 'Buka Modul Transaksi');
+            document.getElementById('btnSwapMember').onclick = () => {
+              switchModule('transaksi');
+              setTokoFile(file.name, aoa);
+              hideMemberAlert();
+            };
+            return;
+          }
+
           if (detected === 'TX_POS' || detected === 'TX_MAGENTO') {
             const targetModul = 'Rekonsiliasi Data PSH & Magento (Transaksi)';
             const jenisFile = detected === 'TX_POS' ? 'Data Transaksi POS (PSH)' : 'Data Transaksi Magento';
@@ -2201,7 +2309,7 @@
         return;
       }
 
-      const headers = data[0].slice(0, 32);
+      const headers = data[0];
       headers.forEach(h => {
         const th = document.createElement('th');
         th.textContent = h || '-';
