@@ -886,16 +886,22 @@
     function detectSpreadsheetType(headers) {
       const lower = headers.map(h => String(h || '').trim().toLowerCase());
       
-      const isMbrPos = lower.some(h => ['kdmbr', 'nmmbr', 'cstmbr', 'poinrpmbr', 'poinmbr'].includes(h));
-      const isMbrMag = lower.some(h => /lac\s*no/i.test(h)) || lower.some(h => /last\s*point\s*up/i.test(h));
-      
-      const isTxPos = lower.some(h => ['nops', 'cstps', 'mbrps', 'pointrpps', 'pointrp2ps'].includes(h));
-      const isTxMag = lower.some(h => /transaction\s*no/i.test(h)) || (lower.some(h => /^point$/i.test(h)) && !lower.some(h => /lac/i.test(h)));
-      
-      if (isMbrPos) return 'MBR_POS';
-      if (isMbrMag) return 'MBR_MAGENTO';
-      if (isTxPos) return 'TX_POS';
+      // 1. File Transaksi Magento: CIRI KHAS UTAMA memiliki kolom "Transaction No." / "Transaction Type"
+      const isTxMag = lower.some(h => /transaction/i.test(h));
       if (isTxMag) return 'TX_MAGENTO';
+
+      // 2. File Member Magento: memiliki kolom nama ('Name'/'Nama') & 'Lac No.' atau 'Last Point Updated' (dan TIDAK ada kolom transaksi)
+      const isMbrMag = (lower.some(h => ['name', 'nama'].includes(h)) && lower.some(h => /lac/i.test(h))) || lower.some(h => /last\s*point/i.test(h));
+      if (isMbrMag) return 'MBR_MAGENTO';
+
+      // 3. File Member POS: memiliki kolom data member 'kdmbr', 'nmmbr', atau 'poinrpmbr'
+      const isMbrPos = lower.some(h => ['kdmbr', 'nmmbr', 'poinrpmbr', 'poinmbr'].includes(h));
+      if (isMbrPos) return 'MBR_POS';
+
+      // 4. File Transaksi POS (PSH): memiliki kolom transaksi 'mbrps', 'pointrpps', 'pointrp2ps', 'totps', atau 'ksrps'
+      const isTxPos = lower.some(h => ['mbrps', 'pointrpps', 'pointrp2ps', 'totps', 'ksrps', 'cstps', 'kdps'].includes(h));
+      if (isTxPos) return 'TX_POS';
+
       return 'UNKNOWN';
     }
 
